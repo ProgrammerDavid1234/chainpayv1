@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import useApi from "../hooks/useApi";
+import { ethers } from "ethers";
 import {
   View,
   Text,
@@ -6,7 +8,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Platform,
   TextInput,
   ScrollView,
   Animated,
@@ -14,6 +15,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Vibration,
+  Linking,
   Alert,
 } from "react-native";
 import {
@@ -25,10 +27,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  RefreshCw,
 } from "lucide-react-native";
 
-// ─── Fake data ────────────────────────────────────────────────────────────────
-const BALANCE_ETH = 1.432;
 const ETH_TO_USD = 3480;
 
 const RECENT_CONTACTS = [
@@ -39,6 +40,9 @@ const RECENT_CONTACTS = [
 ];
 
 const QUICK_AMOUNTS = ["0.01", "0.05", "0.1", "0.5"];
+
+// Returns true for full or truncated 0x addresses (e.g. "0x1A2b...9F3d" or "0xABC123...")
+const isEthAddress = (val) => /^0x[0-9a-fA-F.]{6,}/.test(val.trim());
 
 // ─── Avatar pill ──────────────────────────────────────────────────────────────
 const ContactPill = ({ contact, onPress, selected }) => {
@@ -68,16 +72,27 @@ const ContactPill = ({ contact, onPress, selected }) => {
       activeOpacity={0.8}
       onPress={onPress}
       onPressIn={() =>
-        Animated.spring(scaleAnim, { toValue: 0.93, useNativeDriver: true }).start()
+        Animated.spring(scaleAnim, {
+          toValue: 0.93,
+          useNativeDriver: true,
+        }).start()
       }
       onPressOut={() =>
-        Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }).start()
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }).start()
       }
     >
       <Animated.View
         style={[
           styles.contactPill,
-          { transform: [{ scale: scaleAnim }], backgroundColor: bgColor, borderColor },
+          {
+            transform: [{ scale: scaleAnim }],
+            backgroundColor: bgColor,
+            borderColor,
+          },
         ]}
       >
         <View style={[styles.avatar, selected && styles.avatarSelected]}>
@@ -103,10 +118,17 @@ const AmountChip = ({ value, onPress, selected }) => {
       activeOpacity={0.8}
       onPress={onPress}
       onPressIn={() =>
-        Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true }).start()
+        Animated.spring(scaleAnim, {
+          toValue: 0.9,
+          useNativeDriver: true,
+        }).start()
       }
       onPressOut={() =>
-        Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }).start()
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }).start()
       }
     >
       <Animated.View
@@ -116,7 +138,12 @@ const AmountChip = ({ value, onPress, selected }) => {
           { transform: [{ scale: scaleAnim }] },
         ]}
       >
-        <Text style={[styles.amountChipText, selected && styles.amountChipTextSelected]}>
+        <Text
+          style={[
+            styles.amountChipText,
+            selected && styles.amountChipTextSelected,
+          ]}
+        >
           {value} ETH
         </Text>
       </Animated.View>
@@ -128,72 +155,197 @@ const AmountChip = ({ value, onPress, selected }) => {
 const FeeRow = ({ label, value, muted }) => (
   <View style={styles.feeRow}>
     <Text style={styles.feeLabel}>{label}</Text>
-    <Text style={[styles.feeValue, muted && { color: "rgba(255,255,255,0.35)" }]}>
+    <Text
+      style={[styles.feeValue, muted && { color: "rgba(255,255,255,0.35)" }]}
+    >
       {value}
     </Text>
   </View>
 );
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
-const SendScreen = ({ goTo, route }) => {
-  const prefillAddress = route?.params?.address ?? "";
+const SendScreen = ({ goTo, prefillAddress = "" }) => {
+  const api = useApi();
 
+  // ── Balance state ──────────────────────────────────────────────────────────
+  const [balanceETH, setBalanceETH] = useState(null);
+  const [balanceLoading, setBalanceLoading] = useState(true);
+  const [balanceError, setBalanceError] = useState("");
+
+  // ── Form state ─────────────────────────────────────────────────────────────
   const [recipient, setRecipient] = useState(prefillAddress);
   const [amount, setAmount] = useState("");
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedQuick, setSelectedQuick] = useState(null);
   const [addressFocused, setAddressFocused] = useState(false);
   const [amountFocused, setAmountFocused] = useState(false);
-  const [sending, setSending] = useState(false);
 
-  // derived
+  // ── Gas state ──────────────────────────────────────────────────────────────
+  const [gasEstimate, setGasEstimate] = useState(null);
+  const [loadingGas, setLoadingGas] = useState(false);
+  const [gasError, setGasError] = useState("");
+
+  // ── Send state ─────────────────────────────────────────────────────────────
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+
+  // ── Derived values ─────────────────────────────────────────────────────────
   const amountNum = parseFloat(amount) || 0;
   const amountUSD = (amountNum * ETH_TO_USD).toFixed(2);
-  const gasFee = 0.0008;
+  const gasFee = gasEstimate?.gasFeeEth ?? 0.0008;
   const total = amountNum + gasFee;
-  const hasEnough = total <= BALANCE_ETH;
-  const isValid = recipient.trim().length > 5 && amountNum > 0 && hasEnough;
+  const hasEnough = balanceETH !== null ? total <= balanceETH : true;
+  // True when field looks like a 0x wallet address; false means treat as a name
+  const recipientIsAddress = isEthAddress(recipient);
+  // A name needs ≥2 chars, an address needs more — both satisfied by trim().length > 1
+  const isValid =
+    recipient.trim().length > 1 && amountNum > 0 && hasEnough && !loadingGas;
+  const insufficientFunds = amountNum > 0 && balanceETH !== null && !hasEnough;
 
-  // animations
+  // ── Animations ─────────────────────────────────────────────────────────────
   const headerOp = useRef(new Animated.Value(0)).current;
   const headerY = useRef(new Animated.Value(-20)).current;
   const cardOp = useRef(new Animated.Value(0)).current;
   const cardY = useRef(new Animated.Value(32)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
   const errorShake = useRef(new Animated.Value(0)).current;
-  const sendingPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(headerOp, { toValue: 1, duration: 380, useNativeDriver: true }),
-        Animated.timing(headerY, { toValue: 0, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(headerOp, {
+          toValue: 1,
+          duration: 380,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerY, {
+          toValue: 0,
+          duration: 380,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
       ]),
       Animated.parallel([
-        Animated.timing(cardOp, { toValue: 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(cardY, { toValue: 0, duration: 450, easing: Easing.out(Easing.back(1.1)), useNativeDriver: true }),
+        Animated.timing(cardOp, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardY, {
+          toValue: 0,
+          duration: 450,
+          easing: Easing.out(Easing.back(1.1)),
+          useNativeDriver: true,
+        }),
       ]),
     ]).start();
   }, []);
 
+  // ── API 1: Fetch wallet balance ────────────────────────────────────────────
+  // GET /wallet/balance
+  const fetchBalance = useCallback(async () => {
+    setBalanceLoading(true);
+    setBalanceError("");
+    try {
+      const res = await api.getWalletBalance();
+      // Expected shape: { data: { balanceEth: number, balanceUsd?: number } }
+      const eth =
+        res?.data?.balanceEth ?? res?.data?.balance ?? res?.data?.eth ?? null;
+      setBalanceETH(eth);
+    } catch (err) {
+      setBalanceError("Could not load balance");
+      setBalanceETH(null);
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBalance();
+  }, [fetchBalance]);
+
+  // ── API 2: Fetch gas estimate ──────────────────────────────────────────────
+  // GET /wallet/gas-estimate?to=<address>&amount=<eth>
+  useEffect(() => {
+    if (recipient.trim().length > 5 && amountNum > 0) {
+      let cancelled = false;
+      setLoadingGas(true);
+      setGasError("");
+
+      const run = async () => {
+        try {
+          // For name-based recipients the backend resolves the address internally.
+          // Pass `to` for addresses and `toName` for names so gas estimation works either way.
+          const res = await api.getGasEstimate(
+            recipientIsAddress ? recipient.trim() : null,
+            amountNum,
+            recipientIsAddress ? undefined : recipient.trim(),
+          );
+          // Expected shape: { data: { gasFeeEth: number, gasFeeUsd?: number, gasLimit?: number, gasPrice?: string } }
+          if (!cancelled) setGasEstimate(res?.data ?? null);
+        } catch (err) {
+          if (!cancelled) {
+            setGasError("Failed to estimate gas");
+            setGasEstimate(null);
+          }
+        } finally {
+          if (!cancelled) setLoadingGas(false);
+        }
+      };
+
+      run();
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setGasEstimate(null);
+      setGasError("");
+      setLoadingGas(false);
+    }
+  }, [recipient, amountNum, recipientIsAddress]);
+
+  // ── Shake helper ───────────────────────────────────────────────────────────
   const shake = useCallback(() => {
     Vibration.vibrate(80);
     Animated.sequence([
-      Animated.timing(errorShake, { toValue: 10, duration: 60, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: -10, duration: 60, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: 6, duration: 50, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: -6, duration: 50, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: 0, duration: 40, useNativeDriver: true }),
+      Animated.timing(errorShake, {
+        toValue: 10,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(errorShake, {
+        toValue: -10,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(errorShake, {
+        toValue: 6,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(errorShake, {
+        toValue: -6,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(errorShake, {
+        toValue: 0,
+        duration: 40,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
+  // ── Contact / amount helpers ───────────────────────────────────────────────
   const handleContactSelect = (contact) => {
     if (selectedContact?.id === contact.id) {
       setSelectedContact(null);
       setRecipient("");
     } else {
       setSelectedContact(contact);
-      setRecipient(contact.address);
+      // Backend resolves recipient by name — pass the name, not the truncated address
+      setRecipient(contact.name);
       Keyboard.dismiss();
     }
   };
@@ -212,37 +364,139 @@ const SendScreen = ({ goTo, route }) => {
     setAmount(text);
     setSelectedQuick(null);
   };
+  const ethToWei = (ethAmount) => {
+    const parts = String(ethAmount).split(".");
+    const whole = parts[0];
+    const fraction = parts[1] || "";
+    const paddedFraction = fraction.padEnd(18, "0").slice(0, 18);
+    const cleanWhole = whole.replace(/^0+/, "") || "0";
+    const wei = BigInt(cleanWhole) * BigInt(10 ** 18) + BigInt(paddedFraction);
+    return wei.toString();
+  };
 
-  const handleSend = useCallback(() => {
-    if (!isValid) {
-      shake();
-      return;
-    }
-    Keyboard.dismiss();
-    setSending(true);
+  // ── API 3: Send transaction ─────────────────────────────────────────────
+  const handleSend = async () => {
+    if (!isValid || !amountNum || sending) return;
 
-    // pulse animation while "sending"
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sendingPulse, { toValue: 0.92, duration: 600, useNativeDriver: true }),
-        Animated.timing(sendingPulse, { toValue: 1, duration: 600, useNativeDriver: true }),
-      ])
+    const recipientTrimmed = recipient.trim();
+
+    Alert.alert(
+      "Confirm Send",
+      `Send ${amountNum} ETH to ${recipientTrimmed}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Open MetaMask",
+          onPress: async () => {
+            setSending(true);
+            setSendError(null);
+
+            try {
+              const res = await api.sendTransaction({
+                ...(recipientIsAddress
+                  ? { to: recipientTrimmed }
+                  : { toName: recipientTrimmed }),
+                amount: String(amountNum),
+              });
+
+              const txData = res?.data?.txData;
+              if (!txData) {
+                throw new Error("No transaction data returned");
+              }
+
+              // Manual ETH to wei conversion (no ethers needed)
+              const valueInWei = ethToWei(String(amountNum));
+
+              const ethereumUrl =
+                `ethereum:${txData.to}@${txData.chainId}?` +
+                `value=${valueInWei}&` +
+                `gas=${txData.gasLimit}&` +
+                `gasPrice=${txData.gasPrice}`;
+
+              const canOpen = await Linking.canOpenURL(ethereumUrl);
+
+              if (!canOpen) {
+                Alert.alert(
+                  "MetaMask Required",
+                  "Please install MetaMask to complete this transaction.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Install MetaMask",
+                      onPress: () =>
+                        Linking.openURL("https://metamask.io/download/"),
+                    },
+                  ],
+                );
+                setSending(false);
+                return;
+              }
+
+              Alert.alert(
+                "⚠️ Sepolia Testnet Required",
+                "Before continuing, ensure Sepolia Testnet is added to MetaMask:\n\n" +
+                  "1. Open MetaMask\n" +
+                  "2. Tap ≡ → Settings → Networks\n" +
+                  "3. Add Network → Search 'Sepolia'\n" +
+                  "4. Save and return here\n\n" +
+                  "Then tap Continue to open the transaction.",
+                [
+                  {
+                    text: "Cancel",
+                    style: "cancel",
+                    onPress: () => setSending(false),
+                  },
+                  {
+                    text: "Continue →",
+                    onPress: async () => {
+                      await Linking.openURL(ethereumUrl);
+                      setSending(false);
+
+                      Alert.alert(
+                        "Complete in MetaMask 🦊",
+                        "Review the transaction details in MetaMask and tap Confirm to send.",
+                        [
+                          {
+                            text: "OK",
+                            onPress: () => {
+                              fetchBalance();
+                              goTo("Home");
+                            },
+                          },
+                        ],
+                      );
+                    },
+                  },
+                ],
+              );
+            } catch (err) {
+              console.error("Send error:", err);
+              setSendError(err.message || "Failed to prepare transaction");
+              setSending(false);
+            }
+          },
+        },
+      ],
     );
-    pulse.start();
+  };
 
-    // Simulate on-chain delay
-    setTimeout(() => {
-      pulse.stop();
-      setSending(false);
-      Alert.alert(
-        "Transaction submitted",
-        "Your transaction is being confirmed on the blockchain.",
-        [{ text: "View status", onPress: () => goTo("Home") }]
-      );
-    }, 2500);
-  }, [isValid, shake, goTo]);
+  // ── Balance display helpers ────────────────────────────────────────────────
+  const balanceDisplay = balanceLoading
+    ? "Loading…"
+    : balanceError
+      ? "—"
+      : `${Number(balanceETH).toFixed(4)} ETH`;
 
-  const insufficientFunds = amountNum > 0 && !hasEnough;
+  const balanceUSDDisplay =
+    !balanceLoading && !balanceError && balanceETH !== null
+      ? `≈ $${(balanceETH * ETH_TO_USD).toLocaleString()}`
+      : "";
+
+  const gasDisplay = loadingGas
+    ? "Estimating…"
+    : gasError
+      ? gasError
+      : `${gasFee} ETH`;
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -251,7 +505,10 @@ const SendScreen = ({ goTo, route }) => {
 
         {/* ── Header ── */}
         <Animated.View
-          style={[styles.header, { opacity: headerOp, transform: [{ translateY: headerY }] }]}
+          style={[
+            styles.header,
+            { opacity: headerOp, transform: [{ translateY: headerY }] },
+          ]}
         >
           <TouchableOpacity
             style={styles.backBtn}
@@ -280,19 +537,38 @@ const SendScreen = ({ goTo, route }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View style={{ opacity: cardOp, transform: [{ translateY: cardY }] }}>
-
+          <Animated.View
+            style={{ opacity: cardOp, transform: [{ translateY: cardY }] }}
+          >
             {/* ── Balance card ── */}
             <View style={styles.balanceCard}>
               <View style={styles.balanceLeft}>
                 <Text style={styles.balanceLabel}>Available balance</Text>
-                <Text style={styles.balanceETH}>{BALANCE_ETH} ETH</Text>
-                <Text style={styles.balanceUSD}>
-                  ≈ ${(BALANCE_ETH * ETH_TO_USD).toLocaleString()}
+                <Text
+                  style={[
+                    styles.balanceETH,
+                    balanceError && { color: "#E24B4A" },
+                  ]}
+                >
+                  {balanceDisplay}
                 </Text>
+                {!!balanceUSDDisplay && (
+                  <Text style={styles.balanceUSD}>{balanceUSDDisplay}</Text>
+                )}
+                {!!balanceError && (
+                  <Text style={styles.balanceRetry} onPress={fetchBalance}>
+                    Tap to retry
+                  </Text>
+                )}
               </View>
-              <View style={styles.balanceIcon}>
-                <Wallet color="#2D6FF0" size={22} strokeWidth={2} />
+              <View style={styles.balanceIconWrap}>
+                {balanceLoading ? (
+                  <RefreshCw color="#2D6FF0" size={20} strokeWidth={2} />
+                ) : (
+                  <TouchableOpacity onPress={fetchBalance} activeOpacity={0.7}>
+                    <Wallet color="#2D6FF0" size={22} strokeWidth={2} />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -324,7 +600,7 @@ const SendScreen = ({ goTo, route }) => {
             >
               <TextInput
                 style={styles.input}
-                placeholder="0x address or @username"
+                placeholder="Name, 0x address, or @username"
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 value={recipient}
                 onChangeText={(t) => {
@@ -333,10 +609,10 @@ const SendScreen = ({ goTo, route }) => {
                 }}
                 onFocus={() => setAddressFocused(true)}
                 onBlur={() => setAddressFocused(false)}
-                autoCapitalize="none"
+                autoCapitalize="words"
                 autoCorrect={false}
               />
-              {recipient.length > 5 && (
+              {recipient.trim().length > 1 && (
                 <CheckCircle2 color="#1D9E75" size={18} strokeWidth={2} />
               )}
             </Animated.View>
@@ -363,7 +639,11 @@ const SendScreen = ({ goTo, route }) => {
                 />
                 <View style={styles.currencyBadge}>
                   <Text style={styles.currencyText}>ETH</Text>
-                  <ChevronDown color="rgba(255,255,255,0.4)" size={14} strokeWidth={2} />
+                  <ChevronDown
+                    color="rgba(255,255,255,0.4)"
+                    size={14}
+                    strokeWidth={2}
+                  />
                 </View>
               </View>
               {amountNum > 0 && (
@@ -394,15 +674,18 @@ const SendScreen = ({ goTo, route }) => {
             {amountNum > 0 && (
               <View style={styles.feeCard}>
                 <FeeRow label="Amount" value={`${amountNum.toFixed(4)} ETH`} />
-                <FeeRow label="Network fee (est.)" value={`${gasFee} ETH`} muted />
+                <FeeRow label="Estimated Gas Fee" value={gasDisplay} muted />
                 <View style={styles.feeDivider} />
-                <FeeRow
-                  label="Total"
-                  value={`${total.toFixed(4)} ETH`}
-                />
+                <FeeRow label="Total" value={`${total.toFixed(6)} ETH`} />
                 <View style={styles.feeNote}>
-                  <Clock color="rgba(255,255,255,0.3)" size={12} strokeWidth={2} />
-                  <Text style={styles.feeNoteText}>Est. confirmation ~15s on Sepolia</Text>
+                  <Clock
+                    color="rgba(255,255,255,0.3)"
+                    size={12}
+                    strokeWidth={2}
+                  />
+                  <Text style={styles.feeNoteText}>
+                    Est. confirmation ~15s on Sepolia
+                  </Text>
                 </View>
               </View>
             )}
@@ -413,36 +696,65 @@ const SendScreen = ({ goTo, route }) => {
               onPress={handleSend}
               onPressIn={() =>
                 isValid &&
-                Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true }).start()
+                Animated.spring(btnScale, {
+                  toValue: 0.96,
+                  useNativeDriver: true,
+                }).start()
               }
               onPressOut={() =>
-                Animated.spring(btnScale, { toValue: 1, friction: 4, useNativeDriver: true }).start()
+                Animated.spring(btnScale, {
+                  toValue: 1,
+                  friction: 4,
+                  useNativeDriver: true,
+                }).start()
               }
             >
               <Animated.View
                 style={[
                   styles.sendBtn,
                   !isValid && styles.sendBtnDisabled,
-                  { transform: [{ scale: sending ? sendingPulse : btnScale }] },
+                  { transform: [{ scale: btnScale }] },
                 ]}
               >
                 {sending ? (
-                  <Text style={styles.sendBtnText}>Submitting to blockchain…</Text>
+                  <Text style={styles.sendBtnText}>
+                    Submitting to blockchain…
+                  </Text>
                 ) : (
                   <>
-                    <Send color="#FFFFFF" size={18} strokeWidth={2.5} style={{ marginRight: 10 }} />
+                    <Send
+                      color="#FFFFFF"
+                      size={18}
+                      strokeWidth={2.5}
+                      style={{ marginRight: 10 }}
+                    />
                     <Text style={styles.sendBtnText}>
-                      {isValid ? `Send ${amountNum.toFixed(4)} ETH` : "Send Now"}
+                      {isValid
+                        ? `Send ${amountNum.toFixed(4)} ETH`
+                        : "Send Now"}
                     </Text>
                   </>
                 )}
               </Animated.View>
             </TouchableOpacity>
 
+            {!!sendError && (
+              <View
+                style={[
+                  styles.errorRow,
+                  { justifyContent: "center", marginTop: 4 },
+                ]}
+              >
+                <AlertCircle color="#E24B4A" size={14} strokeWidth={2} />
+                <Text style={[styles.errorText, { marginLeft: 6 }]}>
+                  {sendError}
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.disclaimer}>
               Transactions are irreversible once confirmed on-chain.
             </Text>
-
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
@@ -452,11 +764,7 @@ const SendScreen = ({ goTo, route }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#080B14",
-    paddingTop: 0,
-  },
+  container: { flex: 1, backgroundColor: "#080B14" },
 
   // Header
   header: {
@@ -500,11 +808,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(45,111,240,0.2)",
   },
 
-  // Scroll
-  scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 48,
-  },
+  scroll: { paddingHorizontal: 20, paddingBottom: 48 },
 
   // Balance card
   balanceCard: {
@@ -533,11 +837,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 2,
   },
-  balanceUSD: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 13,
+  balanceUSD: { color: "rgba(255,255,255,0.4)", fontSize: 13 },
+  balanceRetry: {
+    color: "#2D6FF0",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
   },
-  balanceIcon: {
+  balanceIconWrap: {
     width: 46,
     height: 46,
     borderRadius: 14,
@@ -548,7 +855,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(45,111,240,0.25)",
   },
 
-  // Section label
   sectionLabel: {
     color: "rgba(255,255,255,0.4)",
     fontSize: 11,
@@ -559,10 +865,7 @@ const styles = StyleSheet.create({
   },
 
   // Contacts
-  contactsRow: {
-    paddingBottom: 20,
-    gap: 10,
-  },
+  contactsRow: { paddingBottom: 20, gap: 10 },
   contactPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -580,14 +883,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarSelected: {
-    backgroundColor: "#2D6FF0",
-  },
-  avatarText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "700",
-  },
+  avatarSelected: { backgroundColor: "#2D6FF0" },
+  avatarText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
   contactName: {
     color: "rgba(255,255,255,0.7)",
     fontSize: 13,
@@ -666,11 +963,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  usdEquiv: {
-    color: "rgba(255,255,255,0.3)",
-    fontSize: 13,
-    marginTop: 6,
-  },
+  usdEquiv: { color: "rgba(255,255,255,0.3)", fontSize: 13, marginTop: 6 },
 
   // Error
   errorRow: {
@@ -679,11 +972,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 10,
   },
-  errorText: {
-    color: "#E24B4A",
-    fontSize: 13,
-    fontWeight: "500",
-  },
+  errorText: { color: "#E24B4A", fontSize: 13, fontWeight: "500" },
 
   // Quick amounts
   quickRow: {
@@ -709,9 +998,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  amountChipTextSelected: {
-    color: "#FFFFFF",
-  },
+  amountChipTextSelected: { color: "#FFFFFF" },
 
   // Fee card
   feeCard: {
@@ -728,29 +1015,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  feeLabel: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 13,
-  },
-  feeValue: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  feeDivider: {
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  feeNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 2,
-  },
-  feeNoteText: {
-    color: "rgba(255,255,255,0.25)",
-    fontSize: 11,
-  },
+  feeLabel: { color: "rgba(255,255,255,0.45)", fontSize: 13 },
+  feeValue: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
+  feeDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.06)" },
+  feeNote: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  feeNoteText: { color: "rgba(255,255,255,0.25)", fontSize: 11 },
 
   // Send button
   sendBtn: {
@@ -779,7 +1048,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
-  // Disclaimer
   disclaimer: {
     color: "rgba(255,255,255,0.2)",
     fontSize: 11,

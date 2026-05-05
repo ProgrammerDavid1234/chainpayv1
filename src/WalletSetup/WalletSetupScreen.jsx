@@ -347,10 +347,22 @@ const AddressModal = ({ visible, onClose, onSubmit, loading }) => {
 };
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
+
 const WalletSetupScreen = ({ goTo }) => {
   const { updateWallet } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [linking, setLinking] = useState(false);
+
+  // Wallet API state
+  const [nonce, setNonce] = useState(null);
+  const [walletStatus, setWalletStatus] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [loadingNonce, setLoadingNonce] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [errorNonce, setErrorNonce] = useState('');
+  const [errorStatus, setErrorStatus] = useState('');
+  const [errorBalance, setErrorBalance] = useState('');
 
   const headerOp = useRef(new Animated.Value(0)).current;
   const headerY = useRef(new Animated.Value(-16)).current;
@@ -405,28 +417,57 @@ const WalletSetupScreen = ({ goTo }) => {
     ]).start();
   }, []);
 
+  // Fetch wallet nonce on mount
+  useEffect(() => {
+    setLoadingNonce(true);
+    setErrorNonce('');
+    const fetch = async () => {
+      try {
+        const res = await api.getWalletNonce();
+        setNonce(res.data.nonce || res.data);
+      } catch (err) {
+        setErrorNonce('Failed to load wallet nonce');
+      } finally {
+        setLoadingNonce(false);
+      }
+    };
+    fetch();
+  }, []);
+
   // ── Link wallet after user submits address ──────────────────────────────────
   const handleLinkWallet = async (walletAddress) => {
     setLinking(true);
     try {
-      // Get nonce
-      const {
-        data: { nonce },
-      } = await api.getWalletNonce();
-      const message = `Link wallet to ChainPay account: ${nonce}`;
-
-      // Register wallet on backend
+      // Use nonce from state if available
+      const message = nonce ? `Link wallet to ChainPay account: ${nonce}` : '';
       await api.registerWallet({
         walletAddress,
         message,
         signature: "0x00", // manual link — no MetaMask signature needed
       });
-
-      // Update local auth state
       updateWallet(walletAddress);
-
       setModalVisible(false);
-
+      // Fetch wallet status and balance after registration
+      setLoadingStatus(true);
+      setLoadingBalance(true);
+      setErrorStatus('');
+      setErrorBalance('');
+      try {
+        const statusRes = await api.getWalletStatus();
+        setWalletStatus(statusRes.data);
+      } catch {
+        setErrorStatus('Failed to load wallet status');
+      } finally {
+        setLoadingStatus(false);
+      }
+      try {
+        const balanceRes = await api.getWalletBalance();
+        setWalletBalance(balanceRes.data);
+      } catch {
+        setErrorBalance('Failed to load wallet balance');
+      } finally {
+        setLoadingBalance(false);
+      }
       Alert.alert(
         "Wallet linked! 🎉",
         `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} is now connected to your account.`,
@@ -435,8 +476,6 @@ const WalletSetupScreen = ({ goTo }) => {
     } catch (err) {
       const msg =
         err?.response?.data?.error || err.message || "Something went wrong";
-
-      // If wallet already registered — still go home
       if (err?.response?.data?.code === "WALLET_EXISTS") {
         updateWallet(walletAddress);
         setModalVisible(false);
@@ -445,7 +484,6 @@ const WalletSetupScreen = ({ goTo }) => {
         ]);
         return;
       }
-
       Alert.alert("Failed to link wallet", msg);
     } finally {
       setLinking(false);

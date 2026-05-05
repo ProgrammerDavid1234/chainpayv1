@@ -4,6 +4,8 @@ import {
   SafeAreaView, StatusBar, Animated, Easing,
   Dimensions, TextInput, Alert, Platform,
 } from 'react-native';
+import useAuth from '../hooks/useAuth';
+import useApi from '../hooks/useApi';
 import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
 import {
   Wifi, Send, Download, CheckCircle2,
@@ -11,9 +13,6 @@ import {
 } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
-
-// ─── My wallet address (replace with real auth context value) ─────────────────
-const MY_WALLET = '0xAbCd...1234'; // pull from your AuthContext in real app
 
 // ─── Ripple ring component ────────────────────────────────────────────────────
 const RippleRing = ({ delay, size, color }) => {
@@ -104,6 +103,8 @@ const STAGE = {
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function NFCPayScreen({ goTo }) {
+  const { user } = useAuth();
+  const api = useApi();
   const [stage,        setStage]        = useState(STAGE.IDLE);
   const [role,         setRole]         = useState(null);  
   const [peerWallet,   setPeerWallet]   = useState('');
@@ -111,6 +112,12 @@ export default function NFCPayScreen({ goTo }) {
   const [txHash,       setTxHash]       = useState('');
   const [errorMsg,     setErrorMsg]     = useState('');
   const [nfcSupported, setNfcSupported] = useState(true);
+
+  // Debug — log user object on mount
+  useEffect(() => {
+    console.log('NFC screen user:', JSON.stringify(user));
+  }, [user]);
+  const [nfcRequestId,  setNfcRequestId]  = useState('');
 
   // Animations
   const ringRotate  = useRef(new Animated.Value(0)).current;
@@ -189,44 +196,87 @@ export default function NFCPayScreen({ goTo }) {
 
     try {
       if (chosen === 'receiver') {
-        await writeNfcTag(MY_WALLET);
+        // Try user context first, fall back to API call
+        let walletAddr = user?.walletAddress || '';
+        if (!walletAddr) {
+          try {
+            const res = await api.getWalletStatus();
+            walletAddr = res?.data?.walletAddress || '';
+          } catch (_) {}
+        }
+        if (!walletAddr) {
+          setErrorMsg('No wallet linked. Connect your wallet first.');
+          setStage(STAGE.ERROR);
+          return;
+        }
+        await writeNfcTag(walletAddr);
       } else {
         await readNfcTag();
       }
     } catch (e) {
-      setErrorMsg(e.message || 'NFC failed. Try again.');
+      const msg = e?.response?.data?.error || e?.response?.data || e.message || 'NFC failed';
+      console.log('NFC ERROR:', JSON.stringify(e?.response?.data), e.message);
+      setErrorMsg(String(msg));
       setStage(STAGE.ERROR);
     }
   };
 
-  // ── RECEIVER: write wallet address to NFC ─────────────────────────────────
+  // ── RECEIVER: create backend request, write payload to NFC ────────────────
   const writeNfcTag = async (walletAddress) => {
+    // 1. Create NFC request on backend — get a unique requestId + payload
+    const { data } = await api.createNfcRequest('0.001'); // placeholder — sender sets real amount
+    const nfcPayload = data.nfcPayload; // chainpay://nfc?requestId=...&to=...&amount=0
+
+    // 2. Write payload string to the NFC tag
     await NfcManager.requestTechnology(NfcTech.Ndef);
-    const bytes = Ndef.encodeMessage([
-      Ndef.textRecord(JSON.stringify({ type: 'chainpay_v1', wallet: walletAddress })),
-    ]);
+    const bytes = Ndef.encodeMessage([Ndef.textRecord(nfcPayload)]);
     await NfcManager.ndefHandler.writeNdefMessage(bytes);
     await NfcManager.cancelTechnologyRequest();
-    // After writing, wait for sender's confirmation ping via your SSE/backend
+
     setStage(STAGE.ROLE_CHOSEN);
     showCard();
   };
 
-  // ── SENDER: read receiver's wallet from NFC ───────────────────────────────
+  // ── SENDER: read NFC tag, fetch request details from backend ───────────────
   const readNfcTag = async () => {
     await NfcManager.requestTechnology(NfcTech.Ndef);
     const tag = await NfcManager.getTag();
     await NfcManager.cancelTechnologyRequest();
 
-    const record  = tag?.ndefMessage?.[0];
-    const payload = Ndef.text.decodePayload(new Uint8Array(record.payload));
-    const data    = JSON.parse(payload);
+    const record = tag?.ndefMessage?.[0];
+    if (!record || !record.payload) throw new Error('Empty NFC tag — nothing written yet');
 
-    if (data.type !== 'chainpay_v1' || !data.wallet) {
-      throw new Error('Invalid ChainPay NFC tag');
+    // Try text record first, fall back to URI record
+    let rawText = '';
+    try {
+      rawText = Ndef.text.decodePayload(new Uint8Array(record.payload));
+    } catch (_) {
+      try {
+        rawText = Ndef.uri.decodePayload(new Uint8Array(record.payload));
+      } catch (_2) {
+        // Manual decode — skip language code bytes for text records
+        const payload = new Uint8Array(record.payload);
+        const langLen = payload[0] & 0x3f;
+        rawText = new TextDecoder().decode(payload.slice(1 + langLen));
+      }
     }
 
-    setPeerWallet(data.wallet);
+    if (!rawText || !rawText.includes('chainpay')) throw new Error('Not a ChainPay NFC tag');
+
+    // Parse chainpay://nfc?requestId=...&to=...&amount=...
+    const paramStr  = rawText.split('?')[1] || '';
+    const paramPairs = paramStr ? paramStr.split('&').map(p => {
+      const [k, ...v] = p.split('=');
+      return [k, v.join('=')];
+    }).filter(([k]) => k) : [];
+    const params = Object.fromEntries(paramPairs);
+    const toAddr = decodeURIComponent(params.to        || '');
+    const reqId  = decodeURIComponent(params.requestId || '');
+    if (!toAddr) throw new Error('Invalid NFC payload — missing address');
+    if (!reqId)  throw new Error('Invalid NFC payload — missing requestId');
+
+    setPeerWallet(toAddr);
+    setNfcRequestId(reqId);
     setStage(STAGE.AMOUNT);
     showCard();
   };
@@ -241,20 +291,36 @@ export default function NFCPayScreen({ goTo }) {
     showCard();
 
     try {
-      // ── Replace this block with your real Web3/MetaMask call ──────────────
-      // const provider = new ethers.BrowserProvider(window.ethereum);
-      // const signer   = await provider.getSigner();
-      // const contract = new ethers.Contract(PAYMENT_PROCESSOR_ADDR, ABI, signer);
-      // const tx       = await contract.sendPayment(peerWallet, { value: ethers.parseEther(amount) });
-      // const receipt  = await tx.wait();
-      // setTxHash(receipt.hash);
-      // ── Simulated 3-second confirmation ───────────────────────────────────
-      await new Promise((r) => setTimeout(r, 3000));
-      setTxHash('0xSim...TxHash');
-      // ─────────────────────────────────────────────────────────────────────
+      const { getAuthToken } = require('../services/api');
+      const ExpoLinking = require('expo-linking');
+      const { Linking }  = require('react-native');
 
-      setStage(STAGE.SUCCESS);
-      popSuccess();
+      const token       = getAuthToken();
+      const redirectUrl = ExpoLinking.createURL('nfc-tx-complete');
+      const sendPageUrl =
+        'https://metamask.app.link/dapp/chainpaybackend.onrender.com/send/?' +
+        'to='       + encodeURIComponent(peerWallet) +
+        '&amount='  + encodeURIComponent(parseFloat(amount).toString()) +
+        '&token='   + encodeURIComponent(token || '') +
+        '&redirect='+ encodeURIComponent(redirectUrl);
+
+      // Listen for deep link return with txHash
+      const sub = Linking.addEventListener('url', async ({ url }) => {
+        sub.remove();
+        const parsed = ExpoLinking.parse(url);
+        const txH    = parsed?.queryParams?.txHash;
+        const from   = user?.walletAddress || '';
+        if (txH && from) {
+          try {
+            await api.confirmNfcPayment({ requestId: nfcRequestId, txHash: txH, fromAddress: from });
+          } catch (_) {}
+          setTxHash(txH);
+        }
+        setStage(STAGE.SUCCESS);
+        popSuccess();
+      });
+
+      await Linking.openURL(sendPageUrl);
     } catch (e) {
       setErrorMsg(e.message || 'Transaction failed.');
       setStage(STAGE.ERROR);
@@ -268,6 +334,7 @@ export default function NFCPayScreen({ goTo }) {
     setAmount('');
     setTxHash('');
     setErrorMsg('');
+    setNfcRequestId('');
     successScale.setValue(0);
     NfcManager.cancelTechnologyRequest().catch(() => {});
     showCard();

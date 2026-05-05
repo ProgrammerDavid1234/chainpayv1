@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }) => {
     restore();
   }, []);
 
+
   const register = async ({ name, email, password }) => {
     const { data } = await registerApi({ name, email, password });
     setAuthToken(data.token);
@@ -50,7 +51,13 @@ export const AuthProvider = ({ children }) => {
       email:         data.user?.email          || data.email,
       walletAddress: data.user?.wallet_address || null,
     });
-    return data;
+    return {
+      userId:        data.user?.id             || data.userId,
+      name:          data.user?.name           || data.name,
+      email:         data.user?.email          || data.email,
+      walletAddress: data.user?.wallet_address || null,
+      token:         data.token,
+    };
   };
 
   const login = async ({ email, password }) => {
@@ -63,7 +70,13 @@ export const AuthProvider = ({ children }) => {
       email:         data.user?.email          || data.email,
       walletAddress: data.user?.wallet_address || data.walletAddress || null,
     });
-    return data;
+    return {
+      userId:        data.user?.id             || data.userId,
+      name:          data.user?.name           || data.name,
+      email:         data.user?.email          || data.email,
+      walletAddress: data.user?.wallet_address || data.walletAddress || null,
+      token:         data.token,
+    };
   };
 
   const logout = async () => {

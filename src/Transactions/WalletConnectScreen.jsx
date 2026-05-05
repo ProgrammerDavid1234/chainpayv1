@@ -9,7 +9,7 @@ import useAuth from '../hooks/useAuth';
 import * as api from '../services/api';
 import { getAuthToken } from '../services/api';
 
-const BACKEND_URL = 'http://192.168.255.34:4000';
+const BACKEND_URL = 'https://chainpaybackend.onrender.com';
 
 const WalletConnectScreen = ({ goTo }) => {
   const { updateWallet } = useAuth();

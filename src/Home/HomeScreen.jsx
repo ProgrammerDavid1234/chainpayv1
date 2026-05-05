@@ -199,9 +199,10 @@ const HomeScreen = ({ goTo }) => {
   const [activeTab,    setActiveTab]    = useState("Home");
   const [balance,      setBalance]      = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [loading,      setLoading]      = useState(true);
+  const [pending,      setPending]      = useState([]);
+  const [loading,      setLoading]      = useState(false);
   const [refreshing,   setRefreshing]   = useState(false);
-  const [error,        setError]        = useState(null);
+  const [error,        setError]        = useState("");
 
   // Entrance animations
   const headerOp    = useRef(new Animated.Value(0)).current;
@@ -214,22 +215,38 @@ const HomeScreen = ({ goTo }) => {
   const orbAnim     = useRef(new Animated.Value(0)).current;
 
   // ── Load data ────────────────────────────────────────────────────────────────
+  // Load wallet balance, transactions, and pending transactions
   const loadData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
-    setError(null);
-
+    setError("");
     try {
-      // Always load recent transactions if wallet exists
       if (user?.walletAddress) {
-        const [balanceRes, txRes] = await Promise.all([
-          api.getWalletBalance(),
-          api.getTransactions("all", 1),
-        ]);
-        setBalance(balanceRes.data);
-        setTransactions(txRes.data.transactions?.slice(0, 5) || []);
+        // getWalletBalance
+        let balanceRes = null;
+        try {
+          balanceRes = await api.getWalletBalance();
+          setBalance(balanceRes.data);
+        } catch (err) {
+          setError("Failed to load wallet balance");
+        }
+        // getTransactions
+        let txRes = null;
+        try {
+          txRes = await api.getTransactions("all", 1);
+          setTransactions(txRes.data.transactions?.slice(0, 5) || []);
+        } catch (err) {
+          setError("Failed to load transactions");
+        }
+        // getPendingTransactions
+        let pendingRes = null;
+        try {
+          pendingRes = await api.getPendingTransactions();
+          setPending(pendingRes.data.transactions || []);
+        } catch (err) {
+          setError("Failed to load pending transactions");
+        }
       }
     } catch (err) {
-      console.log("Home load error:", err?.response?.data || err.message);
       setError("Could not load data. Pull down to refresh.");
     } finally {
       setLoading(false);
@@ -274,9 +291,11 @@ const HomeScreen = ({ goTo }) => {
 
   const orbTranslate = orbAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
 
+
+  // Hide Wallet tab if wallet is connected
   const tabs = [
     { name: "Home",     icon: Home },
-    { name: "Wallet",   icon: Wallet },
+    ...(hasWallet ? [] : [{ name: "Wallet", icon: Wallet }]),
     { name: "Scan",     icon: QrCode, isCenter: true },
     { name: "Activity", icon: Activity },
     { name: "Profile",  icon: User },
@@ -316,9 +335,9 @@ const HomeScreen = ({ goTo }) => {
               <Text style={styles.userName}>{user?.name?.split(" ")[0] || "User"}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7} onPress={() => goTo("Notification")}>
+          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7} onPress={() => goTo("Notification")}> 
             <Bell color="#FFFFFF" size={20} strokeWidth={2} />
-            <View style={styles.bellDot} />
+            {pending.length > 0 && <View style={styles.bellDot} />}
           </TouchableOpacity>
         </Animated.View>
 

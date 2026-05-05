@@ -1,4 +1,6 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import useAuth from "../hooks/useAuth";
+import useApi from "../hooks/useApi";
 import {
   View,
   Text,
@@ -115,7 +117,65 @@ const FilterChip = ({ label, active, onPress }) => (
 
 // ─── Main ActivityScreen ──────────────────────────────────────────────────────
 const ActivityScreen = ({ goTo }) => {
+  const { user } = useAuth();
+  const api = useApi();
   const [activeFilter, setActiveFilter] = useState("All");
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [txDetails, setTxDetails] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  // Load transactions by filter
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    let filter = "all";
+    if (activeFilter === "Income") filter = "received";
+    else if (activeFilter === "Expense") filter = "sent";
+    else if (activeFilter === "Pending") filter = "pending";
+    try {
+      const res = await api.getTransactions(filter, 1);
+      setTransactions(res.data.transactions || []);
+    } catch (err) {
+      setError("Failed to load transactions");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeFilter, api]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  // Load transaction details
+  const handleTxPress = async (txHash) => {
+    setSelectedTx(txHash);
+    setTxDetails(null);
+    setVerifying(false);
+    setVerifyResult(null);
+    try {
+      const res = await api.getTransaction(txHash);
+      setTxDetails(res.data);
+    } catch {
+      setTxDetails({ error: "Failed to load details" });
+    }
+  };
+
+  // Verify transaction
+  const handleVerify = async (txHash) => {
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const res = await api.verifyTransaction(txHash);
+      setVerifyResult(res.data);
+    } catch {
+      setVerifyResult({ error: "Verification failed" });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   // Entrance animations
   const headerOp = useRef(new Animated.Value(0)).current;
@@ -230,74 +290,57 @@ const ActivityScreen = ({ goTo }) => {
 
           {/* Transactions List */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today</Text>
+            <Text style={styles.sectionTitle}>Transactions</Text>
             <View style={styles.txCard}>
-              <TransactionItem
-                name="Starbucks Subscription"
-                date="Today, 09:41 AM"
-                amount="1,200.00"
-                category="Food & Drinks"
-                isIncome={false}
-                delay={100}
-              />
-              <View style={styles.txDivider} />
-              <TransactionItem
-                name="Olonade Oluwanifemi"
-                date="Today, 08:30 AM"
-                amount="15,000.00"
-                category="Transfer"
-                isIncome={true}
-                delay={200}
-              />
+              {loading ? (
+                <Text style={{ color: '#888', textAlign: 'center', marginVertical: 20 }}>Loading...</Text>
+              ) : error ? (
+                <Text style={{ color: 'red', textAlign: 'center', marginVertical: 20 }}>{error}</Text>
+              ) : transactions.length === 0 ? (
+                <Text style={{ color: '#888', textAlign: 'center', marginVertical: 20 }}>No transactions found</Text>
+              ) : (
+                transactions.map((tx, i) => (
+                  <View key={tx.txHash}>
+                    <TouchableOpacity onPress={() => handleTxPress(tx.txHash)}>
+                      <TransactionItem
+                        name={tx.to}
+                        date={tx.timestamp}
+                        amount={tx.amountEth}
+                        category={tx.direction}
+                        isIncome={tx.direction === 'received'}
+                        status={tx.status}
+                        delay={100 + i * 100}
+                      />
+                    </TouchableOpacity>
+                    {i < transactions.length - 1 && <View style={styles.txDivider} />}
+                  </View>
+                ))
+              )}
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Yesterday</Text>
-            <View style={styles.txCard}>
-              <TransactionItem
-                name="Apple Music"
-                date="Yesterday, 06:00 PM"
-                amount="2,900.00"
-                category="Entertainment"
-                isIncome={false}
-                delay={300}
-              />
-              <View style={styles.txDivider} />
-              <TransactionItem
-                name="Grocery Store"
-                date="Yesterday, 02:15 PM"
-                amount="32,400.00"
-                category="Groceries"
-                isIncome={false}
-                delay={400}
-              />
-              <View style={styles.txDivider} />
-              <TransactionItem
-                name="Refund - Jane Doe"
-                date="Yesterday, 10:20 AM"
-                amount="5,000.00"
-                category="Transfer"
-                isIncome={true}
-                delay={500}
-              />
+          {/* Transaction Details Modal */}
+          {selectedTx && txDetails && (
+            <View style={{ backgroundColor: '#fff', padding: 16, margin: 16, borderRadius: 8 }}>
+              <Text style={{ fontWeight: 'bold' }}>Transaction Details</Text>
+              <Text>Hash: {selectedTx}</Text>
+              <Text>Status: {txDetails.status}</Text>
+              <Text>From: {txDetails.from}</Text>
+              <Text>To: {txDetails.to}</Text>
+              <Text>Amount: {txDetails.amountEth}</Text>
+              <TouchableOpacity onPress={() => handleVerify(selectedTx)} style={{ marginTop: 8, backgroundColor: '#2D6FF0', padding: 8, borderRadius: 4 }}>
+                <Text style={{ color: '#fff', textAlign: 'center' }}>{verifying ? 'Verifying...' : 'Verify Transaction'}</Text>
+              </TouchableOpacity>
+              {verifyResult && (
+                <Text style={{ color: verifyResult.error ? 'red' : 'green', marginTop: 8 }}>
+                  {verifyResult.error ? verifyResult.error : 'Verified!'}
+                </Text>
+              )}
+              <TouchableOpacity onPress={() => { setSelectedTx(null); setTxDetails(null); setVerifyResult(null); }} style={{ marginTop: 8 }}>
+                <Text style={{ color: '#2D6FF0', textAlign: 'center' }}>Close</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-          
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dec 11, 2025</Text>
-            <View style={styles.txCard}>
-              <TransactionItem
-                name="Bank Transfer"
-                date="Dec 11, 04:20 PM"
-                amount="50,000.00"
-                category="Salary"
-                isIncome={true}
-                status="Completed"
-                delay={600}
-              />
-            </View>
-          </View>
+          )}
         </Animated.View>
       </ScrollView>
 

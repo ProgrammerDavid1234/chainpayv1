@@ -1,7 +1,10 @@
 import {
   register, login, logout, getMe,
-  registerWallet, getWalletStatus, getWalletBalance, getGasEstimate,
-  getTransactions, getPendingTransactions, getTransaction, verifyTransaction,
+  registerWallet, getWalletStatus, getWalletBalance,
+  getGasEstimate, getWalletAddress,
+  getTransactions, getPendingTransactions, getTransaction,
+  verifyTransaction, sendTransaction,
+  createNfcRequest, getNfcRequest, confirmNfcPayment, cancelNfcRequest,
   getHealth,
 } from '../services/api';
 
@@ -14,10 +17,16 @@ const useApi = () => ({
   getWalletStatus,
   getWalletBalance,
   getGasEstimate,
+  getWalletAddress,
   getTransactions,
   getPendingTransactions,
   getTransaction,
   verifyTransaction,
+  sendTransaction,
+  createNfcRequest,
+  getNfcRequest,
+  confirmNfcPayment,
+  cancelNfcRequest,
   getHealth,
 });
 
