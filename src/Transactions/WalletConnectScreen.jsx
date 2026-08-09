@@ -89,10 +89,10 @@ const WalletConnectScreen = ({ goTo }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#080B14" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} activeOpacity={0.7} onPress={() => goTo('WalletSetup')} disabled={isLoading}>
-          <ArrowLeft color={isLoading ? 'rgba(255,255,255,0.3)' : '#FFFFFF'} size={20} strokeWidth={2.5} />
+          <ArrowLeft color={isLoading ? 'rgba(0,0,0,0.3)' : '#000000'} size={20} strokeWidth={2.5} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Shield color="#2D6FF0" size={16} strokeWidth={2} />
@@ -178,22 +178,22 @@ const StepRow = ({ n, text }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080B14', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 0 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 42, height: 42, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.07)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  container: { flex: 1, backgroundColor: '#FFFFFF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 0 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  backBtn: { width: 42, height: 42, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.07)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
+  headerTitle: { color: '#000000', fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
   content: { flex: 1, paddingHorizontal: 28, paddingTop: 48, alignItems: 'center' },
   iconArea: { marginBottom: 28 },
   iconOuter: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(45,111,240,0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(45,111,240,0.15)' },
   iconInner: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(45,111,240,0.12)', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', letterSpacing: -0.5, marginBottom: 10 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 21, marginBottom: 32, paddingHorizontal: 8 },
-  stepsBox: { width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 32, gap: 16 },
+  title: { fontSize: 26, fontWeight: '800', color: '#000000', textAlign: 'center', letterSpacing: -0.5, marginBottom: 10 },
+  subtitle: { fontSize: 14, color: 'rgba(0,0,0,0.5)', textAlign: 'center', lineHeight: 21, marginBottom: 32, paddingHorizontal: 8 },
+  stepsBox: { width: '100%', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)', marginBottom: 32, gap: 16 },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(45,111,240,0.15)', borderWidth: 1, borderColor: 'rgba(45,111,240,0.3)', justifyContent: 'center', alignItems: 'center', marginTop: 1 },
   stepNumText: { color: '#2D6FF0', fontSize: 12, fontWeight: '700' },
-  stepText: { flex: 1, color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 19 },
+  stepText: { flex: 1, color: 'rgba(0,0,0,0.55)', fontSize: 13, lineHeight: 19 },
   waitingBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(45,111,240,0.08)', borderWidth: 1, borderColor: 'rgba(45,111,240,0.2)', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 28, width: '100%' },
   waitingText: { color: '#63B3FF', fontSize: 13, fontWeight: '600' },
   successBox: { backgroundColor: 'rgba(16,185,129,0.08)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.2)', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 32, width: '100%', alignItems: 'center' },
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   connectBtn: { backgroundColor: '#2D6FF0', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 18, shadowColor: '#2D6FF0', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 8, marginBottom: 16, width: '100%' },
   connectBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
   cancelBtn: { paddingVertical: 12 },
-  cancelBtnText: { color: 'rgba(255,255,255,0.3)', fontSize: 14 },
+  cancelBtnText: { color: 'rgba(0,0,0,0.3)', fontSize: 14 },
 });
 
 export default WalletConnectScreen;

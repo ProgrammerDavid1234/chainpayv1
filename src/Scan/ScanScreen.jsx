@@ -51,17 +51,17 @@ const ScanScreen = ({ goTo }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       <Animated.View style={[styles.content, { opacity: contentOp }]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7} onPress={() => goTo("Home")}>
-            <X color="#FFFFFF" size={24} strokeWidth={2.5} />
+            <X color="#000000" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Scan QR Code</Text>
           <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-            <Zap color="#FFFFFF" size={24} strokeWidth={2.5} />
+            <Zap color="#000000" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
 
@@ -76,7 +76,7 @@ const ScanScreen = ({ goTo }) => {
 
             {/* Placeholder for Camera View */}
             <View style={styles.cameraPlaceholder}>
-              <QrCode color="rgba(255,255,255,0.15)" size={80} strokeWidth={1.5} />
+              <QrCode color="rgba(0,0,0,0.15)" size={80} strokeWidth={1.5} />
             </View>
 
             {/* Simulated Scanning Line */}
@@ -95,7 +95,7 @@ const ScanScreen = ({ goTo }) => {
         {/* Footer */}
         <View style={styles.footer}>
           <TouchableOpacity style={styles.galleryBtn} activeOpacity={0.8}>
-            <ImageIcon color="#FFFFFF" size={20} strokeWidth={2} />
+            <ImageIcon color="#000000" size={20} strokeWidth={2} />
             <Text style={styles.galleryText}>Upload from Gallery</Text>
           </TouchableOpacity>
         </View>
@@ -107,7 +107,7 @@ const ScanScreen = ({ goTo }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#FFFFFF",
     paddingTop: 0,
   },
   content: {
@@ -125,12 +125,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(0,0,0,0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 18,
     fontWeight: "600",
   },
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   scannerFrame: {
     position: "relative",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.05)",
   },
   corner: {
     position: "absolute",
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   instructionText: {
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(0,0,0,0.7)",
     fontSize: 15,
     marginTop: 32,
     textAlign: "center",
@@ -209,13 +209,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(0,0,0,0.1)",
     paddingVertical: 16,
     borderRadius: 16,
     gap: 10,
   },
   galleryText: {
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 16,
     fontWeight: "600",
   },

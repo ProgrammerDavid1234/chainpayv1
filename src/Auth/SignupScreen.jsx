@@ -14,6 +14,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import {
   Mail,
@@ -25,9 +26,22 @@ import {
   CheckCircle2,
   Circle,
   ArrowRight,
+  Shield,
+  Link,
 } from "lucide-react-native";
 
 const { width } = Dimensions.get("window");
+
+// ─── Brand mark (matches splash logo) ─────────────────────────────────────────
+const BrandMark = () => (
+  <View style={styles.brandMark}>
+    <View style={styles.brandSheen} />
+    <Shield color="#FFFFFF" size={20} strokeWidth={2.2} />
+    <View style={styles.brandBadge}>
+      <Link color="#0A1628" size={9} strokeWidth={3} />
+    </View>
+  </View>
+);
 // ─── Password strength meter ──────────────────────────────────────────────────
 const StrengthMeter = ({ password, visible }) => {
   const animWidths = [
@@ -52,7 +66,7 @@ const StrengthMeter = ({ password, visible }) => {
   const colors = ["#EF4444", "#F59E0B", "#3B82F6", "#10B981"];
   const label = password.length > 0 ? labels[Math.max(0, strength - 1)] : "";
   const color =
-    password.length > 0 ? colors[Math.max(0, strength - 1)] : "#1E2D4A";
+    password.length > 0 ? colors[Math.max(0, strength - 1)] : "#9CA3AF";
 
   useEffect(() => {
     Animated.timing(containerOp, {
@@ -85,7 +99,7 @@ const StrengthMeter = ({ password, visible }) => {
                     inputRange: [0, 1],
                     outputRange: [0, 1],
                   }),
-                  backgroundColor: i < strength ? color : "#0F1E3A",
+                  backgroundColor: i < strength ? color : "#E5E7EB",
                 },
               ]}
             />
@@ -116,6 +130,7 @@ const AnimatedInput = ({
   value,
   onChangeText,
   placeholder,
+  placeholderTextColor,
   keyboardType,
   autoCapitalize,
   secureTextEntry,
@@ -219,7 +234,7 @@ const AnimatedInput = ({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [error ? "#7F1D1D" : "#1A2740", "#2D6FF0"],
+    outputRange: [error ? "#DC2626" : "#E5E7EB", "#2D6FF0"],
   });
 
   const glowOpacity = glowAnim.interpolate({
@@ -228,9 +243,9 @@ const AnimatedInput = ({
   });
   const bgColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#080F1E", "#0D1E3C"],
+    outputRange: ["#FFFFFF", "#F0F4FF"],
   });
-  const iconColor = focused ? "#2D6FF0" : error ? "#F87171" : "#2A3D5C";
+  const iconColor = focused ? "#2D6FF0" : error ? "#F87171" : "#9CA3AF";
 
   return (
     <Animated.View
@@ -264,7 +279,7 @@ const AnimatedInput = ({
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor="#1E2D4A"
+          placeholderTextColor={placeholderTextColor || "#9CA3AF"}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize || "none"}
           secureTextEntry={secureTextEntry}
@@ -316,6 +331,17 @@ const SignupScreen = ({ goTo }) => {
   const footerY = useRef(new Animated.Value(30)).current;
 
   const orbAnim = useRef(new Animated.Value(0)).current;
+
+  // Primary button press feedback
+  const btnScale = useRef(new Animated.Value(1)).current;
+  const animateBtn = (to) => {
+    Animated.spring(btnScale, {
+      toValue: to,
+      friction: 7,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const hasLength = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);
@@ -437,16 +463,16 @@ const SignupScreen = ({ goTo }) => {
       activeOpacity={0.6}
     >
       {showPassword ? (
-        <EyeOff color="#2A3D5C" size={18} strokeWidth={2} />
+        <EyeOff color="#9CA3AF" size={18} strokeWidth={2} />
       ) : (
-        <Eye color="#2A3D5C" size={18} strokeWidth={2} />
+        <Eye color="#9CA3AF" size={18} strokeWidth={2} />
       )}
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Background orbs */}
       <Animated.View
@@ -470,7 +496,7 @@ const SignupScreen = ({ goTo }) => {
             activeOpacity={0.7}
             onPress={() => goTo("Splash")}
           >
-            <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2.5} />
+            <ArrowLeft color="#000000" size={20} strokeWidth={2.5} />
           </TouchableOpacity>
           <StepBar step={step} />
           <View style={styles.stepLabel}>
@@ -490,6 +516,7 @@ const SignupScreen = ({ goTo }) => {
               { opacity: titleOp, transform: [{ translateY: titleY }] },
             ]}
           >
+            <BrandMark />
             <Text style={styles.eyebrow}>NEW ACCOUNT</Text>
             <Text style={styles.title}>Create{"\n"}Account</Text>
             <Text style={styles.subtitle}>Join thousands using ChainPay</Text>
@@ -501,7 +528,6 @@ const SignupScreen = ({ goTo }) => {
               label="Full Name"
               icon={User}
               value={fullName}
-              placeholderTextColor="#0e4fc0" // ← change this colour
               onChangeText={setFullName}
               placeholder="Alex Johnson"
               autoCapitalize="words"
@@ -565,23 +591,29 @@ const SignupScreen = ({ goTo }) => {
         >
           <View style={styles.footerDivider} />
 
-          <TouchableOpacity
-            style={[styles.primaryButton, loading && { opacity: 0.7 }]}
-            activeOpacity={0.85}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <View style={styles.primaryInner}>
-              <Text style={styles.primaryText}>
-                {loading ? "Creating Account..." : "Create Account"}
-              </Text>
-              {!loading && (
-                <View style={styles.arrowBox}>
-                  <ArrowRight color="#FFFFFF" size={16} strokeWidth={3} />
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && { opacity: 0.8 }]}
+              activeOpacity={0.85}
+              onPress={handleSubmit}
+              onPressIn={() => animateBtn(0.97)}
+              onPressOut={() => animateBtn(1)}
+              disabled={loading}
+            >
+              <View style={styles.primaryInner}>
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.primaryText}>Create Account</Text>
+                    <View style={styles.arrowBox}>
+                      <ArrowRight color="#FFFFFF" size={16} strokeWidth={3} />
+                    </View>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Show API error below button */}
           {apiError !== "" && (
@@ -610,7 +642,7 @@ const SignupScreen = ({ goTo }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#060D1A", paddingTop: 0 },
+  container: { flex: 1, backgroundColor: "#FFFFFF", paddingTop: 0 },
 
   bgOrb: {
     position: "absolute",
@@ -643,11 +675,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(0,0,0,0.08)",
   },
 
   // Step bar
@@ -671,6 +703,48 @@ const styles = StyleSheet.create({
   },
 
   titleContainer: { marginBottom: 32 },
+
+  // Brand mark
+  brandMark: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#1A3A7A",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(99,156,255,0.3)",
+    shadowColor: "#2D6FF0",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: "hidden",
+    position: "relative",
+    marginBottom: 20,
+  },
+  brandSheen: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "45%",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  brandBadge: {
+    position: "absolute",
+    bottom: 3,
+    right: 3,
+    width: 16,
+    height: 16,
+    borderRadius: 5,
+    backgroundColor: "#63B3FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   eyebrow: {
     color: "#10B981",
     fontSize: 11,
@@ -681,19 +755,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 40,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: "#000000",
     letterSpacing: -1,
     lineHeight: 46,
     marginBottom: 10,
+    textShadowColor: "rgba(16,185,129,0.3)",
+    textShadowRadius: 24,
   },
-  subtitle: { fontSize: 15, color: "#2A3D5C", fontWeight: "400" },
+  subtitle: { fontSize: 15, color: "#6B7280", fontWeight: "400" },
 
   formContainer: { gap: 18 },
 
   // Animated input
   inputGroup: { position: "relative" },
   inputLabel: {
-    color: "#e1e9f5",
+    color: "#6B7280",
     fontSize: 12,
     fontWeight: "600",
     letterSpacing: 1,
@@ -710,6 +786,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 56,
     borderRadius: 14,
+    backgroundColor: "rgba(45,111,240,0.06)",
     shadowColor: "#2D6FF0",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
@@ -735,7 +812,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 15,
     fontWeight: "500",
     height: "100%",
@@ -768,7 +845,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "#0F1E3A",
+    backgroundColor: "#E5E7EB",
     overflow: "hidden",
     flexDirection: "row",
   },
@@ -785,13 +862,13 @@ const styles = StyleSheet.create({
   reqContainer: { marginTop: -4 },
   reqGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   reqRow: { flexDirection: "row", alignItems: "center", gap: 5, width: "46%" },
-  reqText: { color: "#2A3D5C", fontSize: 12, fontWeight: "500" },
+  reqText: { color: "#6B7280", fontSize: 12, fontWeight: "500" },
   reqTextMet: { color: "#10B981" },
 
   // Terms
   termsRow: { marginTop: 4 },
   termsText: {
-    color: "#2A3D5C",
+    color: "#6B7280",
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center",
@@ -803,12 +880,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 8,
-    backgroundColor: "#060D1A",
+    backgroundColor: "#FFFFFF",
   },
   footerDivider: {
     width: "100%",
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.08)",
     marginBottom: 20,
   },
   primaryButton: {
@@ -845,8 +922,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  promptText: { color: "#2A3D5C", fontSize: 14 },
-  promptLink: { color: "#63B3FF", fontSize: 14, fontWeight: "700" },
+  promptText: { color: "#6B7280", fontSize: 14 },
+  promptLink: { color: "#2D6FF0", fontSize: 14, fontWeight: "700" },
 });
 
 export default SignupScreen;

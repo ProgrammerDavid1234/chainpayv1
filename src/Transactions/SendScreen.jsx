@@ -60,11 +60,11 @@ const ContactPill = ({ contact, onPress, selected }) => {
 
   const bgColor = selectAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(255,255,255,0.06)", "rgba(45,111,240,0.2)"],
+    outputRange: ["rgba(0,0,0,0.06)", "rgba(45,111,240,0.2)"],
   });
   const borderColor = selectAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(255,255,255,0.08)", "#2D6FF0"],
+    outputRange: ["rgba(0,0,0,0.08)", "#2D6FF0"],
   });
 
   return (
@@ -99,7 +99,7 @@ const ContactPill = ({ contact, onPress, selected }) => {
           <Text style={styles.avatarText}>{contact.avatar}</Text>
         </View>
         <View>
-          <Text style={[styles.contactName, selected && { color: "#FFFFFF" }]}>
+          <Text style={[styles.contactName, selected && { color: "#000000" }]}>
             {contact.name}
           </Text>
           <Text style={styles.contactAddress}>{contact.address}</Text>
@@ -156,7 +156,7 @@ const FeeRow = ({ label, value, muted }) => (
   <View style={styles.feeRow}>
     <Text style={styles.feeLabel}>{label}</Text>
     <Text
-      style={[styles.feeValue, muted && { color: "rgba(255,255,255,0.35)" }]}
+      style={[styles.feeValue, muted && { color: "rgba(0,0,0,0.35)" }]}
     >
       {value}
     </Text>
@@ -407,11 +407,20 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
               // Manual ETH to wei conversion (no ethers needed)
               const valueInWei = ethToWei(String(amountNum));
 
-              const ethereumUrl =
-                `ethereum:${txData.to}@${txData.chainId}?` +
-                `value=${valueInWei}&` +
-                `gas=${txData.gasLimit}&` +
-                `gasPrice=${txData.gasPrice}`;
+              // When contract path is used, the deep link points to the
+// PaymentProcessor contract. MetaMask will call sendPayment(toRecipient)
+// internally, then dispatch ETH to the recipient. Show both so the
+// user understands what's happening.
+const destLabel = useContractPath
+  ? `Payment processor → ${recipientTrimmed.slice(0, 10)}`
+  : `Recipient: ${recipientTrimmed.slice(0, 10)}`;
+
+const ethereumUrl =
+  `ethereum:${txData.to}@${txData.chainId}?` +
+  `value=${valueInWei}&` +
+  `gas=${txData.gasLimit}&` +
+  `gasPrice=${txData.gasPrice}` +
+  (txData.data ? `&data=${txData.data}` : '');
 
               const canOpen = await Linking.canOpenURL(ethereumUrl);
 
@@ -501,7 +510,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#080B14" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
         {/* ── Header ── */}
         <Animated.View
@@ -515,7 +524,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
             activeOpacity={0.7}
             onPress={() => goTo("Home")}
           >
-            <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2.5} />
+            <ArrowLeft color="#000000" size={20} strokeWidth={2.5} />
           </TouchableOpacity>
 
           <View>
@@ -601,7 +610,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
               <TextInput
                 style={styles.input}
                 placeholder="Name, 0x address, or @username"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor="rgba(0,0,0,0.25)"
                 value={recipient}
                 onChangeText={(t) => {
                   setRecipient(t);
@@ -630,7 +639,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0.00"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  placeholderTextColor="rgba(0,0,0,0.2)"
                   value={amount}
                   onChangeText={handleAmountChange}
                   onFocus={() => setAmountFocused(true)}
@@ -640,7 +649,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
                 <View style={styles.currencyBadge}>
                   <Text style={styles.currencyText}>ETH</Text>
                   <ChevronDown
-                    color="rgba(255,255,255,0.4)"
+                    color="rgba(0,0,0,0.4)"
                     size={14}
                     strokeWidth={2}
                   />
@@ -679,7 +688,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
                 <FeeRow label="Total" value={`${total.toFixed(6)} ETH`} />
                 <View style={styles.feeNote}>
                   <Clock
-                    color="rgba(255,255,255,0.3)"
+                    color="rgba(0,0,0,0.3)"
                     size={12}
                     strokeWidth={2}
                   />
@@ -764,7 +773,7 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#080B14" },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
 
   // Header
   header: {
@@ -778,21 +787,21 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(0,0,0,0.07)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(0,0,0,0.06)",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
     letterSpacing: -0.3,
   },
   headerSub: {
-    color: "rgba(255,255,255,0.35)",
+    color: "rgba(0,0,0,0.35)",
     fontSize: 11,
     textAlign: "center",
     marginTop: 1,
@@ -824,20 +833,20 @@ const styles = StyleSheet.create({
   },
   balanceLeft: { gap: 2 },
   balanceLabel: {
-    color: "rgba(255,255,255,0.45)",
+    color: "rgba(0,0,0,0.45)",
     fontSize: 11,
     fontWeight: "500",
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   balanceETH: {
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.5,
     marginTop: 2,
   },
-  balanceUSD: { color: "rgba(255,255,255,0.4)", fontSize: 13 },
+  balanceUSD: { color: "rgba(0,0,0,0.4)", fontSize: 13 },
   balanceRetry: {
     color: "#2D6FF0",
     fontSize: 12,
@@ -856,7 +865,7 @@ const styles = StyleSheet.create({
   },
 
   sectionLabel: {
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(0,0,0,0.4)",
     fontSize: 11,
     fontWeight: "600",
     letterSpacing: 0.8,
@@ -879,19 +888,19 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(0,0,0,0.08)",
     justifyContent: "center",
     alignItems: "center",
   },
   avatarSelected: { backgroundColor: "#2D6FF0" },
-  avatarText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  avatarText: { color: "#000000", fontSize: 11, fontWeight: "700" },
   contactName: {
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(0,0,0,0.7)",
     fontSize: 13,
     fontWeight: "600",
   },
   contactAddress: {
-    color: "rgba(255,255,255,0.3)",
+    color: "rgba(0,0,0,0.3)",
     fontSize: 10,
     marginTop: 1,
   },
@@ -900,11 +909,11 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     borderRadius: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(0,0,0,0.07)",
     marginBottom: 20,
   },
   inputWrapFocused: {
@@ -913,7 +922,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 15,
     paddingVertical: 15,
     fontWeight: "500",
@@ -921,11 +930,11 @@ const styles = StyleSheet.create({
 
   // Amount
   amountCard: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(0,0,0,0.07)",
     marginBottom: 10,
   },
   amountCardFocused: {
@@ -943,7 +952,7 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     flex: 1,
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 38,
     fontWeight: "800",
     letterSpacing: -1,
@@ -952,18 +961,18 @@ const styles = StyleSheet.create({
   currencyBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(0,0,0,0.07)",
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
     gap: 4,
   },
   currencyText: {
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(0,0,0,0.7)",
     fontSize: 13,
     fontWeight: "700",
   },
-  usdEquiv: { color: "rgba(255,255,255,0.3)", fontSize: 13, marginTop: 6 },
+  usdEquiv: { color: "rgba(0,0,0,0.3)", fontSize: 13, marginTop: 6 },
 
   // Error
   errorRow: {
@@ -985,29 +994,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.05)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(0,0,0,0.08)",
   },
   amountChipSelected: {
     backgroundColor: "rgba(45,111,240,0.2)",
     borderColor: "#2D6FF0",
   },
   amountChipText: {
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(0,0,0,0.5)",
     fontSize: 13,
     fontWeight: "600",
   },
-  amountChipTextSelected: { color: "#FFFFFF" },
+  amountChipTextSelected: { color: "#000000" },
 
   // Fee card
   feeCard: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: "rgba(0,0,0,0.03)",
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(0,0,0,0.05)",
     gap: 10,
   },
   feeRow: {
@@ -1015,11 +1024,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  feeLabel: { color: "rgba(255,255,255,0.45)", fontSize: 13 },
-  feeValue: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
-  feeDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.06)" },
+  feeLabel: { color: "rgba(0,0,0,0.45)", fontSize: 13 },
+  feeValue: { color: "#000000", fontSize: 13, fontWeight: "600" },
+  feeDivider: { height: 1, backgroundColor: "rgba(0,0,0,0.06)" },
   feeNote: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  feeNoteText: { color: "rgba(255,255,255,0.25)", fontSize: 11 },
+  feeNoteText: { color: "rgba(0,0,0,0.25)", fontSize: 11 },
 
   // Send button
   sendBtn: {
@@ -1049,7 +1058,7 @@ const styles = StyleSheet.create({
   },
 
   disclaimer: {
-    color: "rgba(255,255,255,0.2)",
+    color: "rgba(0,0,0,0.2)",
     fontSize: 11,
     textAlign: "center",
     lineHeight: 16,

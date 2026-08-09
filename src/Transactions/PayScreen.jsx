@@ -122,7 +122,7 @@ const MethodCard = ({ method, onPress, index }) => {
         inputRange: [0, 1],
         outputRange: ["rgba(45,111,240,0.15)", "rgba(45,111,240,0.45)"],
       })
-    : "rgba(255,255,255,0.05)";
+    : "rgba(0,0,0,0.05)";
 
   return (
     <Animated.View style={{ opacity: entranceOp, transform: [{ translateY: entranceY }, { scale: scaleAnim }], marginBottom: 12 }}>
@@ -139,7 +139,7 @@ const MethodCard = ({ method, onPress, index }) => {
         <Animated.View style={[styles.methodCard, !method.available && styles.methodCardDisabled, { borderColor }]}>
           <View style={[styles.iconWrap, { backgroundColor: method.iconBg + "22" }]}>
             <method.icon
-              color={method.available ? method.iconBg : "rgba(255,255,255,0.25)"}
+              color={method.available ? method.iconBg : "rgba(0,0,0,0.25)"}
               size={22} strokeWidth={2}
             />
           </View>
@@ -161,7 +161,7 @@ const MethodCard = ({ method, onPress, index }) => {
           </View>
 
           <ChevronRight
-            color={method.available ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.12)"}
+            color={method.available ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.12)"}
             size={18} strokeWidth={2}
           />
         </Animated.View>
@@ -212,12 +212,12 @@ const PayScreen = ({ goTo }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#080B14" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Header ── */}
       <Animated.View style={[styles.header, { opacity: headerOp, transform: [{ translateY: headerY }] }]}>
         <TouchableOpacity style={styles.backBtn} activeOpacity={0.7} onPress={() => goTo("Home")}>
-          <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2.5} />
+          <ArrowLeft color="#000000" size={20} strokeWidth={2.5} />
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>Pay</Text>
@@ -286,7 +286,7 @@ const PayScreen = ({ goTo }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#080B14",
+    backgroundColor: "#FFFFFF",
     paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 8 : 0,
   },
   header: {
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     width: 42, height: 42, borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(0,0,0,0.07)",
     justifyContent: "center", alignItems: "center",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1, borderColor: "rgba(0,0,0,0.06)",
   },
-  headerTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "700", textAlign: "center", letterSpacing: -0.3 },
-  headerSub:   { color: "rgba(255,255,255,0.35)", fontSize: 11, textAlign: "center", marginTop: 1 },
+  headerTitle: { color: "#000000", fontSize: 18, fontWeight: "700", textAlign: "center", letterSpacing: -0.3 },
+  headerSub:   { color: "rgba(0,0,0,0.35)", fontSize: 11, textAlign: "center", marginTop: 1 },
   headerRight: {
     flexDirection: "row", alignItems: "center", gap: 4,
     backgroundColor: "rgba(239,159,39,0.1)",
@@ -312,24 +312,24 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingBottom: 48 },
 
   statsCard: {
-    flexDirection: "row", backgroundColor: "rgba(255,255,255,0.04)",
+    flexDirection: "row", backgroundColor: "rgba(0,0,0,0.04)",
     borderRadius: 18, padding: 16, marginBottom: 24,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1, borderColor: "rgba(0,0,0,0.06)",
     justifyContent: "space-around", alignItems: "center",
   },
   statItem: { alignItems: "center", gap: 4 },
-  statVal:  { color: "#FFFFFF", fontSize: 15, fontWeight: "700", marginTop: 4 },
-  statLbl:  { color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "500" },
-  statDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.07)" },
+  statVal:  { color: "#000000", fontSize: 15, fontWeight: "700", marginTop: 4 },
+  statLbl:  { color: "rgba(0,0,0,0.35)", fontSize: 10, fontWeight: "500" },
+  statDivider: { width: 1, height: 36, backgroundColor: "rgba(0,0,0,0.07)" },
 
   sectionLabel: {
-    color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "600",
+    color: "rgba(0,0,0,0.4)", fontSize: 11, fontWeight: "600",
     letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 12,
   },
 
   methodCard: {
     flexDirection: "row", alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     borderRadius: 18, padding: 16, borderWidth: 1,
   },
   methodCardDisabled: { opacity: 0.55 },
@@ -339,30 +339,30 @@ const styles = StyleSheet.create({
   },
   methodText:     { flex: 1 },
   methodTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 3 },
-  methodTitle:    { color: "#FFFFFF", fontSize: 15, fontWeight: "700", letterSpacing: -0.2 },
-  textMuted:      { color: "rgba(255,255,255,0.45)" },
-  methodSubtitle: { color: "rgba(255,255,255,0.38)", fontSize: 12 },
+  methodTitle:    { color: "#000000", fontSize: 15, fontWeight: "700", letterSpacing: -0.2 },
+  textMuted:      { color: "rgba(0,0,0,0.45)" },
+  methodSubtitle: { color: "rgba(0,0,0,0.38)", fontSize: 12 },
   badge:          { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   badgeText:      { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
 
   recentCard: {
-    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.04)", borderRadius: 18,
     overflow: "hidden", borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)", marginBottom: 20,
+    borderColor: "rgba(0,0,0,0.06)", marginBottom: 20,
   },
   recentRow:    { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
   recentIcon:   {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     justifyContent: "center", alignItems: "center",
   },
   recentInfo:   { flex: 1 },
-  recentName:   { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
-  recentTime:   { color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 },
+  recentName:   { color: "#000000", fontSize: 14, fontWeight: "600" },
+  recentTime:   { color: "rgba(0,0,0,0.35)", fontSize: 11, marginTop: 2 },
   recentAmount: { color: "#E24B4A", fontSize: 14, fontWeight: "700" },
-  recentDivider:{ height: 1, backgroundColor: "rgba(255,255,255,0.05)", marginHorizontal: 14 },
+  recentDivider:{ height: 1, backgroundColor: "rgba(0,0,0,0.05)", marginHorizontal: 14 },
 
-  footNote: { color: "rgba(255,255,255,0.18)", fontSize: 11, textAlign: "center", lineHeight: 16 },
+  footNote: { color: "rgba(0,0,0,0.18)", fontSize: 11, textAlign: "center", lineHeight: 16 },
 });
 
 export default PayScreen;

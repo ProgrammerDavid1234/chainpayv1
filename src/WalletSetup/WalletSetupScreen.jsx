@@ -31,6 +31,7 @@ import {
 import { ethers } from "ethers";
 import useAuth from "../hooks/useAuth";
 import * as api from "../services/api";
+import { useTheme } from "../contexts/ThemeContext";
 
 const { width } = Dimensions.get("window");
 
@@ -115,6 +116,8 @@ const OptionCard = ({
   onPress,
   delay,
 }) => {
+  const { theme } = useTheme();
+  const colors = theme.colors;
   const entranceOp = useRef(new Animated.Value(0)).current;
   const entranceY = useRef(new Animated.Value(20)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -146,7 +149,7 @@ const OptionCard = ({
       }}
     >
       <TouchableOpacity
-        style={styles.optionCard}
+        style={[styles.optionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         activeOpacity={0.7}
         onPress={onPress}
         onPressIn={() =>
@@ -171,10 +174,10 @@ const OptionCard = ({
           />
         </View>
         <View style={styles.optionTextArea}>
-          <Text style={styles.optionTitle}>{title}</Text>
-          <Text style={styles.optionSubtitle}>{subtitle}</Text>
+          <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>{title}</Text>
+          <Text style={[styles.optionSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
         </View>
-        <ChevronRight color="#B0B8C9" size={20} strokeWidth={2} />
+        <ChevronRight color={colors.textMuted} size={20} strokeWidth={2} />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -350,6 +353,8 @@ const AddressModal = ({ visible, onClose, onSubmit, loading }) => {
 
 const WalletSetupScreen = ({ goTo }) => {
   const { updateWallet } = useAuth();
+  const { theme, mode, toggleTheme } = useTheme();
+  const colors = theme.colors;
   const [modalVisible, setModalVisible] = useState(false);
   const [linking, setLinking] = useState(false);
 
@@ -497,8 +502,8 @@ const WalletSetupScreen = ({ goTo }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FC" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> 
+      <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       <View style={styles.bgBlob1} />
       <View style={styles.bgBlob2} />
@@ -511,17 +516,22 @@ const WalletSetupScreen = ({ goTo }) => {
         ]}
       >
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           activeOpacity={0.7}
           onPress={() => goTo("Home")}
         >
-          <ArrowLeft color="#1A2440" size={20} strokeWidth={2.5} />
+          <ArrowLeft color={colors.textPrimary} size={20} strokeWidth={2.5} />
         </TouchableOpacity>
         <View style={styles.headerLogo}>
-          <Shield color="#2D6FF0" size={18} strokeWidth={2.5} />
-          <Text style={styles.headerLogoText}>ChainPay</Text>
+          <Shield color={colors.primary} size={18} strokeWidth={2.5} />
+          <Text style={[styles.headerLogoText, { color: colors.textPrimary }]}>ChainPay</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={[styles.headerIconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} activeOpacity={0.7} onPress={toggleTheme}>
+            <Text style={{ color: colors.textPrimary, fontSize: 14 }}>{mode === "dark" ? "☀" : "☾"}</Text>
+          </TouchableOpacity>
+          <View style={{ width: 8 }} />
+        </View>
       </Animated.View>
 
       {/* Content */}
@@ -544,8 +554,8 @@ const WalletSetupScreen = ({ goTo }) => {
             { opacity: titleOp, transform: [{ translateY: titleY }] },
           ]}
         >
-          <Text style={styles.title}>Set up your wallet</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Set up your wallet</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}> 
             Your wallet stores your payment keys securely on your device. We
             never see them.
           </Text>
@@ -580,14 +590,14 @@ const WalletSetupScreen = ({ goTo }) => {
       </View>
 
       {/* Tab bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}> 
         <TouchableOpacity
           style={styles.tabItem}
           activeOpacity={0.6}
           onPress={() => goTo("Home")}
         >
           <Wallet color="#2D6FF0" size={22} strokeWidth={2} />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>Wallet</Text>
+          <Text style={[styles.tabLabel, styles.tabLabelActive, { color: colors.primary }]}>Wallet</Text>
         </TouchableOpacity>
         <View style={styles.tabDivider} />
         <TouchableOpacity
@@ -596,7 +606,7 @@ const WalletSetupScreen = ({ goTo }) => {
           onPress={() => goTo("Profile")}
         >
           <Shield color="#9BA5B7" size={22} strokeWidth={2} />
-          <Text style={styles.tabLabel}>Profile</Text>
+          <Text style={[styles.tabLabel, { color: colors.textMuted }]}>Profile</Text>
         </TouchableOpacity>
       </View>
 
@@ -655,6 +665,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   headerLogo: { flexDirection: "row", alignItems: "center", gap: 6 },
+  headerActions: { flexDirection: "row", alignItems: "center" },
+  headerIconBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center", borderWidth: 1 },
   headerLogoText: {
     fontSize: 16,
     fontWeight: "700",

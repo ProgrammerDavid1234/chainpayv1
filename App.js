@@ -4,6 +4,7 @@ import { View, Platform, SafeAreaView } from 'react-native';
 
 import AuthProvider from './src/providers/AuthProvider';
 import ApiProvider from './src/providers/ApiProvider';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import WalletConnectScreen from './src/Transactions/WalletConnectScreen';
 import SplashScreen from './src/SplashScreen/SplashScreen';
 import LoginScreen from './src/Auth/LoginScreen';
@@ -22,11 +23,12 @@ import NotificationScreen from './src/Notifications/NotificationScreen';
 // Navigator lives INSIDE AuthProvider so useAuth works everywhere
 const Navigator = () => {
   const [screen, setScreen] = useState('Splash');
+  const { theme, mode } = useTheme();
   const goTo = (name) => setScreen(name);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000', paddingTop: Platform.OS === 'android' ? 40 : 50 }}>
-      <StatusBar style="light" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: Platform.OS === 'android' ? 40 : 50 }}>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       {screen === 'Splash' && <SplashScreen goTo={goTo} />}
       {screen === 'Login' && <LoginScreen goTo={goTo} />}
       {screen === 'Signup' && <SignupScreen goTo={goTo} />}
@@ -47,10 +49,12 @@ const Navigator = () => {
 
 export default function App() {
   return (
-    <ApiProvider>
-      <AuthProvider>
-        <Navigator />
-      </AuthProvider>
-    </ApiProvider>
+    <ThemeProvider>
+      <ApiProvider>
+        <AuthProvider>
+          <Navigator />
+        </AuthProvider>
+      </ApiProvider>
+    </ThemeProvider>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import useAuth from "../hooks/useAuth";
 import useApi from "../hooks/useApi";
+import { useTheme } from "../contexts/ThemeContext";
 import {
   View,
   Text,
@@ -29,7 +30,7 @@ import {
 const { width } = Dimensions.get("window");
 
 // ─── Transaction item ─────────────────────────────────────────────────────────
-const TransactionItem = ({ name, date, amount, category, isIncome, status, delay }) => {
+const TransactionItem = ({ name, date, amount, category, isIncome, status, delay, colors, mode }) => {
   const entranceOp = useRef(new Animated.Value(0)).current;
   const entranceX = useRef(new Animated.Value(20)).current;
 
@@ -58,14 +59,17 @@ const TransactionItem = ({ name, date, amount, category, isIncome, status, delay
         { opacity: entranceOp, transform: [{ translateX: entranceX }] },
       ]}
     >
-      {/* Icon */}
       <View
         style={[
           styles.txIcon,
           {
             backgroundColor: isIncome
-              ? "rgba(16,185,129,0.1)"
-              : "rgba(239,68,68,0.1)",
+              ? mode === "dark"
+                ? "rgba(16,185,129,0.1)"
+                : "rgba(16,185,129,0.12)"
+              : mode === "dark"
+                ? "rgba(239,68,68,0.1)"
+                : "rgba(239,68,68,0.12)",
           },
         ]}
       >
@@ -76,26 +80,24 @@ const TransactionItem = ({ name, date, amount, category, isIncome, status, delay
         )}
       </View>
 
-      {/* Details */}
       <View style={styles.txDetails}>
-        <Text style={styles.txName}>{name}</Text>
-        <Text style={styles.txDate}>{date}</Text>
+        <Text style={[styles.txName, { color: colors.textPrimary }]}>{name}</Text>
+        <Text style={[styles.txDate, { color: colors.textSecondary }]}>{date}</Text>
       </View>
 
-      {/* Amount & Status */}
       <View style={styles.txAmountArea}>
         <Text
           style={[
             styles.txAmount,
-            { color: isIncome ? "#10B981" : "#EF4444" },
+            { color: isIncome ? colors.success : colors.error },
           ]}
         >
-          {isIncome ? "+" : "-"}₦{amount}
+          {isIncome ? "+" : "-"}Ξ{amount} ETH
         </Text>
         {status ? (
-          <Text style={[styles.txCategory, styles.txStatus]}>{status}</Text>
+          <Text style={[styles.txCategory, styles.txStatus, { color: colors.success }]}>{status}</Text>
         ) : (
-          <Text style={styles.txCategory}>{category}</Text>
+          <Text style={[styles.txCategory, { color: colors.textSecondary }]}>{category}</Text>
         )}
       </View>
     </Animated.View>
@@ -103,22 +105,40 @@ const TransactionItem = ({ name, date, amount, category, isIncome, status, delay
 };
 
 // ─── Filter Chip ─────────────────────────────────────────────────────────────
-const FilterChip = ({ label, active, onPress }) => (
+const FilterChip = ({ label, active, onPress, colors, mode }) => (
   <TouchableOpacity
-    style={[styles.filterChip, active && styles.filterChipActive]}
+    style={[
+      styles.filterChip,
+      active && styles.filterChipActive,
+      {
+        backgroundColor: active
+          ? colors.primary
+          : mode === "dark"
+            ? "rgba(255,255,255,0.05)"
+            : "rgba(45,111,240,0.06)",
+        borderColor: active ? colors.primary : colors.border,
+      },
+    ]}
     activeOpacity={0.7}
     onPress={onPress}
   >
-    <Text style={[styles.filterText, active && styles.filterTextActive]}>
+    <Text
+      style={[
+        styles.filterText,
+        active && styles.filterTextActive,
+        { color: active ? colors.textPrimary : colors.textSecondary },
+      ]}
+    >
       {label}
     </Text>
   </TouchableOpacity>
 );
-
 // ─── Main ActivityScreen ──────────────────────────────────────────────────────
 const ActivityScreen = ({ goTo }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const api = useApi();
+  const { theme, mode, toggleTheme } = useTheme();
+  const colors = theme.colors;
   const [activeFilter, setActiveFilter] = useState("All");
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -127,27 +147,55 @@ const ActivityScreen = ({ goTo }) => {
   const [txDetails, setTxDetails] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState(null);
-  // Load transactions by filter
-  const loadTransactions = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    let filter = "all";
-    if (activeFilter === "Income") filter = "received";
-    else if (activeFilter === "Expense") filter = "sent";
-    else if (activeFilter === "Pending") filter = "pending";
-    try {
-      const res = await api.getTransactions(filter, 1);
-      setTransactions(res.data.transactions || []);
-    } catch (err) {
-      setError("Failed to load transactions");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeFilter, api]);
+
+  // ✅ FIXED: Simple useEffect, no useCallback with unstable dependencies
+  const sortTransactions = (txs) =>
+    [...txs].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
 
   useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
+    let cancelled = false;
+
+    const fetchData = async () => {
+      setLoading(true);
+      setError("");
+
+      let filter = "all";
+      if (activeFilter === "Income") filter = "received";
+      else if (activeFilter === "Expense") filter = "sent";
+      else if (activeFilter === "Pending") filter = "pending";
+
+      try {
+        console.log('Fetching transactions...');
+        const res = await api.getTransactions(filter, 1, 20);
+        console.log('Response:', res.data);
+
+        if (!cancelled) {
+          const txList = Array.isArray(res.data?.transactions)
+            ? sortTransactions(res.data.transactions)
+            : [];
+          console.log('Setting transactions:', txList.length);
+          setTransactions(txList);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error:', err);
+          setError(err.message || "Failed to load transactions");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => { cancelled = true; };
+  }, [activeFilter]); // ✅ ONLY activeFilter as dependency
+
+  // ... rest of your component stays the same
 
   // Load transaction details
   const handleTxPress = async (txHash) => {
@@ -239,14 +287,20 @@ const ActivityScreen = ({ goTo }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Background orbs */}
       <Animated.View
-        style={[styles.bgOrb, { transform: [{ translateY: orbTranslate }] }]}
+        style={[
+          styles.bgOrb,
+          {
+            transform: [{ translateY: orbTranslate }],
+            backgroundColor: mode === "dark" ? "rgba(45,111,240,0.08)" : "rgba(45,111,240,0.12)",
+          },
+        ]}
       />
-      <View style={styles.bgOrb2} />
+      <View style={[styles.bgOrb2, { backgroundColor: mode === "dark" ? "rgba(99,178,255,0.04)" : "rgba(45,111,240,0.08)" }]} />
 
       <ScrollView
         style={styles.scrollView}
@@ -260,13 +314,44 @@ const ActivityScreen = ({ goTo }) => {
             { opacity: headerOp, transform: [{ translateY: headerY }] },
           ]}
         >
-          <Text style={styles.headerTitle}>Activity</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Activity</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-              <Search color="#FFFFFF" size={20} strokeWidth={2} />
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(45,111,240,0.08)",
+                  borderColor: colors.border,
+                },
+              ]}
+              activeOpacity={0.7}
+              onPress={toggleTheme}
+            >
+              <Text style={{ color: colors.textPrimary, fontSize: 16 }}>{mode === "dark" ? "☀" : "☾"}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-              <Filter color="#FFFFFF" size={20} strokeWidth={2} />
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(45,111,240,0.08)",
+                  borderColor: colors.border,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              <Search color={colors.textPrimary} size={20} strokeWidth={2} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(45,111,240,0.08)",
+                  borderColor: colors.border,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              <Filter color={colors.textPrimary} size={20} strokeWidth={2} />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -284,20 +369,22 @@ const ActivityScreen = ({ goTo }) => {
                 label={filter}
                 active={activeFilter === filter}
                 onPress={() => setActiveFilter(filter)}
+                colors={colors}
+                mode={mode}
               />
             ))}
           </ScrollView>
 
           {/* Transactions List */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Transactions</Text>
-            <View style={styles.txCard}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Transactions</Text>
+            <View style={[styles.txCard, { backgroundColor: mode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(45,111,240,0.04)", borderColor: colors.border }]}>
               {loading ? (
-                <Text style={{ color: '#888', textAlign: 'center', marginVertical: 20 }}>Loading...</Text>
+                <Text style={{ color: colors.textSecondary, textAlign: 'center', marginVertical: 20 }}>Loading...</Text>
               ) : error ? (
-                <Text style={{ color: 'red', textAlign: 'center', marginVertical: 20 }}>{error}</Text>
+                <Text style={{ color: colors.error, textAlign: 'center', marginVertical: 20 }}>{error}</Text>
               ) : transactions.length === 0 ? (
-                <Text style={{ color: '#888', textAlign: 'center', marginVertical: 20 }}>No transactions found</Text>
+                <Text style={{ color: colors.textSecondary, textAlign: 'center', marginVertical: 20 }}>No transactions found</Text>
               ) : (
                 transactions.map((tx, i) => (
                   <View key={tx.txHash}>
@@ -310,6 +397,8 @@ const ActivityScreen = ({ goTo }) => {
                         isIncome={tx.direction === 'received'}
                         status={tx.status}
                         delay={100 + i * 100}
+                        colors={colors}
+                        mode={mode}
                       />
                     </TouchableOpacity>
                     {i < transactions.length - 1 && <View style={styles.txDivider} />}
@@ -321,23 +410,23 @@ const ActivityScreen = ({ goTo }) => {
 
           {/* Transaction Details Modal */}
           {selectedTx && txDetails && (
-            <View style={{ backgroundColor: '#fff', padding: 16, margin: 16, borderRadius: 8 }}>
-              <Text style={{ fontWeight: 'bold' }}>Transaction Details</Text>
-              <Text>Hash: {selectedTx}</Text>
-              <Text>Status: {txDetails.status}</Text>
-              <Text>From: {txDetails.from}</Text>
-              <Text>To: {txDetails.to}</Text>
-              <Text>Amount: {txDetails.amountEth}</Text>
-              <TouchableOpacity onPress={() => handleVerify(selectedTx)} style={{ marginTop: 8, backgroundColor: '#2D6FF0', padding: 8, borderRadius: 4 }}>
+            <View style={{ backgroundColor: colors.surface, padding: 16, margin: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ fontWeight: 'bold', color: colors.textPrimary }}>Transaction Details</Text>
+              <Text style={{ color: colors.textSecondary }}>Hash: {selectedTx}</Text>
+              <Text style={{ color: colors.textSecondary }}>Status: {txDetails.status}</Text>
+              <Text style={{ color: colors.textSecondary }}>From: {txDetails.from}</Text>
+              <Text style={{ color: colors.textSecondary }}>To: {txDetails.to}</Text>
+              <Text style={{ color: colors.textSecondary }}>Amount: {txDetails.amountEth}</Text>
+              <TouchableOpacity onPress={() => handleVerify(selectedTx)} style={{ marginTop: 8, backgroundColor: colors.primary, padding: 8, borderRadius: 4 }}>
                 <Text style={{ color: '#fff', textAlign: 'center' }}>{verifying ? 'Verifying...' : 'Verify Transaction'}</Text>
               </TouchableOpacity>
               {verifyResult && (
-                <Text style={{ color: verifyResult.error ? 'red' : 'green', marginTop: 8 }}>
+                <Text style={{ color: verifyResult.error ? colors.error : colors.success, marginTop: 8 }}>
                   {verifyResult.error ? verifyResult.error : 'Verified!'}
                 </Text>
               )}
               <TouchableOpacity onPress={() => { setSelectedTx(null); setTxDetails(null); setVerifyResult(null); }} style={{ marginTop: 8 }}>
-                <Text style={{ color: '#2D6FF0', textAlign: 'center' }}>Close</Text>
+                <Text style={{ color: colors.primary, textAlign: 'center' }}>Close</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -345,7 +434,7 @@ const ActivityScreen = ({ goTo }) => {
       </ScrollView>
 
       {/* Bottom tab bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: mode === "dark" ? "#0A1222" : colors.surface, borderTopColor: colors.border }]}> 
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.name}
@@ -376,8 +465,8 @@ const ActivityScreen = ({ goTo }) => {
                 <tab.icon
                   color={
                     "Activity" === tab.name
-                      ? "#2D6FF0"
-                      : "rgba(255,255,255,0.35)"
+                      ? colors.primary
+                      : colors.textMuted
                   }
                   size={22}
                   strokeWidth={"Activity" === tab.name ? 2.5 : 1.8}
@@ -386,6 +475,7 @@ const ActivityScreen = ({ goTo }) => {
                   style={[
                     styles.tabLabel,
                     "Activity" === tab.name && styles.tabLabelActive,
+                    { color: "Activity" === tab.name ? colors.primary : colors.textMuted },
                   ]}
                 >
                   {tab.name}
@@ -554,7 +644,7 @@ const styles = StyleSheet.create({
   },
   txDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     marginVertical: 14,
   },
 

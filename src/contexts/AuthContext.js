@@ -1,11 +1,11 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   login as loginApi,
   register as registerApi,
   logout as logoutApi,
   getMe,
   setAuthToken,
-  getAuthToken,
 } from '../services/api';
 
 export const AuthContext = createContext(null);
@@ -18,19 +18,32 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const restore = async () => {
       try {
-        const savedToken = getAuthToken();
+        const savedToken = await AsyncStorage.getItem('authToken');
+        console.log('Restored token:', savedToken);
+        
         if (savedToken) {
-          const { data } = await getMe();
+          setAuthToken(savedToken);
+          const res = await getMe();
+          console.log('GetMe response:', res.data);
+          
+          const userData = res.data?.user || res.data;
+          
+          if (!userData || !userData.id) {
+            throw new Error('Invalid user data from server');
+          }
+          
           setUser({
-            userId:        data.user.id,
-            name:          data.user.name,
-            email:         data.user.email,
-            walletAddress: data.user.wallet_address || null,
+            userId:        userData.id,
+            name:          userData.name,
+            email:         userData.email,
+            walletAddress: userData.wallet_address || userData.walletAddress || null,
           });
           setToken(savedToken);
         }
-      } catch (_) {
+      } catch (err) {
+        console.error('Restore failed:', err.message);
         setAuthToken(null);
+        await AsyncStorage.removeItem('authToken');
         setUser(null);
         setToken(null);
       } finally {
@@ -40,61 +53,73 @@ export const AuthProvider = ({ children }) => {
     restore();
   }, []);
 
-
   const register = async ({ name, email, password }) => {
     const { data } = await registerApi({ name, email, password });
-    setAuthToken(data.token);
-    setToken(data.token);
+    
+    const newToken = data?.token || data?.accessToken;
+    const userData = data?.user || data;
+    
+    if (!newToken) throw new Error('No token received from server');
+    
+    await AsyncStorage.setItem('authToken', newToken);
+    setAuthToken(newToken);
+    setToken(newToken);
+    
     setUser({
-      userId:        data.user?.id             || data.userId,
-      name:          data.user?.name           || data.name,
-      email:         data.user?.email          || data.email,
-      walletAddress: data.user?.wallet_address || null,
+      userId:        userData?.id             || userData?.userId,
+      name:          userData?.name           || name,
+      email:         userData?.email          || email,
+      walletAddress: userData?.wallet_address || userData?.walletAddress || null,
     });
-    return {
-      userId:        data.user?.id             || data.userId,
-      name:          data.user?.name           || data.name,
-      email:         data.user?.email          || data.email,
-      walletAddress: data.user?.wallet_address || null,
-      token:         data.token,
-    };
+    
+    return { token: newToken, user: userData };
   };
 
   const login = async ({ email, password }) => {
     const { data } = await loginApi({ email, password });
-    setAuthToken(data.token);
-    setToken(data.token);
+    
+    const newToken = data?.token || data?.accessToken;
+    const userData = data?.user || data;
+    
+    if (!newToken) throw new Error('No token received from server');
+    
+    await AsyncStorage.setItem('authToken', newToken);
+    setAuthToken(newToken);
+    setToken(newToken);
+    
     setUser({
-      userId:        data.user?.id             || data.userId,
-      name:          data.user?.name           || data.name,
-      email:         data.user?.email          || data.email,
-      walletAddress: data.user?.wallet_address || data.walletAddress || null,
+      userId:        userData?.id             || userData?.userId,
+      name:          userData?.name           || userData?.name,
+      email:         userData?.email          || userData?.email,
+      walletAddress: userData?.wallet_address || userData?.walletAddress || null,
     });
-    return {
-      userId:        data.user?.id             || data.userId,
-      name:          data.user?.name           || data.name,
-      email:         data.user?.email          || data.email,
-      walletAddress: data.user?.wallet_address || data.walletAddress || null,
-      token:         data.token,
-    };
+    
+    return { token: newToken, user: userData };
   };
 
   const logout = async () => {
     try { await logoutApi(); } catch (_) {}
+    
+    await AsyncStorage.removeItem('authToken');
     setAuthToken(null);
     setToken(null);
     setUser(null);
   };
 
   const updateWallet = (walletAddress) => {
-    setUser((prev) => ({ ...prev, walletAddress }));
+    setUser((prev) => prev ? ({ ...prev, walletAddress }) : null);
   };
 
   return (
     <AuthContext.Provider value={{
-      user, token, loading,
+      user, 
+      token,
+      loading,
       isAuthenticated: !!user,
-      register, login, logout, updateWallet,
+      register, 
+      login, 
+      logout, 
+      updateWallet,
     }}>
       {children}
     </AuthContext.Provider>

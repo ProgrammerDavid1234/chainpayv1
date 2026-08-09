@@ -70,12 +70,12 @@ const NotificationScreen = ({ goTo }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goTo('Home')} style={styles.backButton}>
-          <ArrowLeft color="#FFFFFF" size={24} />
+          <ArrowLeft color="#000000" size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={{ width: 24 }} />
@@ -112,7 +112,7 @@ const NotificationScreen = ({ goTo }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#060D1A',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -126,14 +126,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#000000',
   },
   content: {
     paddingHorizontal: 20,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -190,11 +190,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   time: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(0,0,0,0.5)',
     fontSize: 12,
   },
   message: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(0,0,0,0.7)',
     fontSize: 14,
     lineHeight: 20,
   },

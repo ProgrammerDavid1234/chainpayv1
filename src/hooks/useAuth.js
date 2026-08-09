@@ -3,18 +3,11 @@ import { AuthContext } from '../contexts/AuthContext';
 
 const useAuth = () => {
   const context = useContext(AuthContext);
+  
   if (!context) {
-    return {
-      user: null,
-      token: null,
-      loading: false,
-      isAuthenticated: false,
-      login: async () => {},
-      logout: async () => {},
-      register: async () => {},
-      updateWallet: () => {},
-    };
+    throw new Error('useAuth must be used within an AuthProvider');
   }
+  
   return context;
 };
 

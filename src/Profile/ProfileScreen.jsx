@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Platform,
   Dimensions,
   Animated,
   Easing,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import {
   Home,
@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Camera,
 } from "lucide-react-native";
+import { getMe } from "../services/api";
 
 const { width } = Dimensions.get("window");
 
@@ -66,13 +67,13 @@ const MenuItem = ({ icon: Icon, title, iconBg, delay, isDestructive, onPress }) 
         onPress={onPress}
       >
         <View style={[styles.menuIconWrap, { backgroundColor: iconBg }]}>
-          <Icon color={isDestructive ? "#EF4444" : "#FFFFFF"} size={20} strokeWidth={2.5} />
+          <Icon color={isDestructive ? "#EF4444" : "#000000"} size={20} strokeWidth={2.5} />
         </View>
         <Text style={[styles.menuTitle, isDestructive && styles.menuTitleDestructive]}>
           {title}
         </Text>
         {!isDestructive && (
-          <ChevronRight color="rgba(255,255,255,0.3)" size={20} strokeWidth={2} />
+          <ChevronRight color="rgba(0,0,0,0.3)" size={20} strokeWidth={2} />
         )}
       </TouchableOpacity>
     </Animated.View>
@@ -81,6 +82,10 @@ const MenuItem = ({ icon: Icon, title, iconBg, delay, isDestructive, onPress }) 
 
 // ─── Main ProfileScreen ───────────────────────────────────────────────────────
 const ProfileScreen = ({ goTo }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Entrance animations
   const headerOp = useRef(new Animated.Value(0)).current;
   const headerY = useRef(new Animated.Value(-20)).current;
@@ -90,6 +95,26 @@ const ProfileScreen = ({ goTo }) => {
   // Background orb
   const orbAnim = useRef(new Animated.Value(0)).current;
 
+  // Fetch user data from API
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const response = await getMe();
+      setUser(response.data);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch user:", err);
+      setError("Failed to load profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Entrance animations
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -154,7 +179,7 @@ const ProfileScreen = ({ goTo }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Background orbs */}
       <Animated.View
@@ -177,7 +202,7 @@ const ProfileScreen = ({ goTo }) => {
           <Text style={styles.headerTitle}>Profile</Text>
         </Animated.View>
 
-        {/* Profile Info */}
+        {/* Profile Info - DYNAMIC */}
         <Animated.View
           style={[
             styles.profileSection,
@@ -186,18 +211,31 @@ const ProfileScreen = ({ goTo }) => {
         >
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>A</Text>
+              <Text style={styles.avatarText}>
+                {user?.name ? user.name.charAt(0).toUpperCase() : "?"}
+              </Text>
             </View>
             <TouchableOpacity style={styles.editAvatarBtn} activeOpacity={0.8}>
-              <Camera color="#FFFFFF" size={14} strokeWidth={2.5} />
+              <Camera color="#000000" size={14} strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>Alex Johnson</Text>
-          <Text style={styles.userEmail}>alex.johnson@example.com</Text>
+
+          {loading ? (
+            <ActivityIndicator color="#2D6FF0" size="small" style={styles.loader} />
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : (
+            <>
+              <Text style={styles.userName}>{user?.name || "Unknown User"}</Text>
+              <Text style={styles.userEmail}>{user?.email || "No email"}</Text>
+            </>
+          )}
 
           <View style={styles.statusBadge}>
             <Shield color="#10B981" size={14} strokeWidth={3} />
-            <Text style={styles.statusText}>Verified Account</Text>
+            <Text style={styles.statusText}>
+              {user?.isVerified ? "Verified Account" : "Unverified"}
+            </Text>
           </View>
         </Animated.View>
 
@@ -232,13 +270,13 @@ const ProfileScreen = ({ goTo }) => {
 
           <MenuItem
             icon={HelpCircle}
-            iconBg="rgba(255,255,255,0.05)"
+            iconBg="rgba(0,0,0,0.05)"
             title="Help & Support"
             delay={500}
           />
           <MenuItem
             icon={Info}
-            iconBg="rgba(255,255,255,0.05)"
+            iconBg="rgba(0,0,0,0.05)"
             title="About ChainPay"
             delay={600}
           />
@@ -289,7 +327,7 @@ const ProfileScreen = ({ goTo }) => {
                   color={
                     "Profile" === tab.name
                       ? "#2D6FF0"
-                      : "rgba(255,255,255,0.35)"
+                      : "rgba(0,0,0,0.35)"
                   }
                   size={22}
                   strokeWidth={"Profile" === tab.name ? 2.5 : 1.8}
@@ -316,7 +354,7 @@ const ProfileScreen = ({ goTo }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#060D1A",
+    backgroundColor: "#FFFFFF",
     paddingTop: 0,
   },
   scrollView: {
@@ -354,7 +392,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: "#000000",
     letterSpacing: -0.5,
   },
 
@@ -389,22 +427,30 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#0A1628",
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#060D1A",
+    borderColor: "#FFFFFF",
+  },
+  loader: {
+    marginVertical: 8,
   },
   userName: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#000000",
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: "#8E9EBA",
+    color: "#6B7280",
     marginBottom: 12,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 14,
+    marginBottom: 4,
   },
   statusBadge: {
     flexDirection: "row",
@@ -428,12 +474,12 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.02)",
+    backgroundColor: "rgba(0,0,0,0.02)",
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.03)",
+    borderColor: "rgba(0,0,0,0.03)",
   },
   menuIconWrap: {
     width: 40,
@@ -447,14 +493,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: "#000000",
   },
   menuTitleDestructive: {
     color: "#EF4444",
   },
   menuDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.05)",
     marginVertical: 12,
     marginHorizontal: 10,
   },
@@ -462,12 +508,12 @@ const styles = StyleSheet.create({
   // Tab bar
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#0A1222",
+    backgroundColor: "#F8FAFC",
     paddingVertical: 12,
     paddingBottom: 28,
     paddingHorizontal: 20,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.05)",
+    borderTopColor: "rgba(0,0,0,0.05)",
     justifyContent: "space-between",
     alignItems: "flex-end",
   },
@@ -496,7 +542,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     fontWeight: "500",
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(0,0,0,0.5)",
     marginTop: 6,
   },
   tabLabelActive: {

@@ -12,6 +12,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import {
   Mail,
@@ -21,11 +22,24 @@ import {
   ArrowLeft,
   Fingerprint,
   ArrowRight,
+  Shield,
+  Link,
 } from "lucide-react-native";
 
 const { width, height } = Dimensions.get("window");
 
 import useAuth from "../hooks/useAuth";
+
+// ─── Brand mark (matches splash logo) ─────────────────────────────────────────
+const BrandMark = () => (
+  <View style={styles.brandMark}>
+    <View style={styles.brandSheen} />
+    <Shield color="#FFFFFF" size={20} strokeWidth={2.2} />
+    <View style={styles.brandBadge}>
+      <Link color="#0A1628" size={9} strokeWidth={3} />
+    </View>
+  </View>
+);
 // ─── Animated input field ─────────────────────────────────────────────────────
 const AnimatedInput = ({
   label,
@@ -137,7 +151,7 @@ const AnimatedInput = ({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [error ? "#7F1D1D" : "#1E2D4A", "#2D6FF0"],
+    outputRange: [error ? "#DC2626" : "#E5E7EB", "#2D6FF0"],
   });
 
   const glowOpacity = glowAnim.interpolate({
@@ -147,10 +161,10 @@ const AnimatedInput = ({
 
   const bgColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#0A1628", "#0D1E3C"],
+    outputRange: ["#FFFFFF", "#F0F4FF"],
   });
 
-  const iconColor = focused ? "#2D6FF0" : error ? "#F87171" : "#3D5070";
+  const iconColor = focused ? "#2D6FF0" : error ? "#F87171" : "#9CA3AF";
 
   return (
     <Animated.View
@@ -187,7 +201,7 @@ const AnimatedInput = ({
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor="#2A3D5C"
+          placeholderTextColor="#9CA3AF"
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize || "none"}
           secureTextEntry={secureTextEntry}
@@ -225,6 +239,17 @@ const LoginScreen = ({ goTo }) => {
 
   // Background orb
   const orbAnim = useRef(new Animated.Value(0)).current;
+
+  // Primary button press feedback
+  const btnScale = useRef(new Animated.Value(1)).current;
+  const animateBtn = (to) => {
+    Animated.spring(btnScale, {
+      toValue: to,
+      friction: 7,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
 
   useEffect(() => {
     // Floating background orb
@@ -342,16 +367,16 @@ const LoginScreen = ({ goTo }) => {
       activeOpacity={0.6}
     >
       {showPassword ? (
-        <EyeOff color="#3D5070" size={18} strokeWidth={2} />
+        <EyeOff color="#9CA3AF" size={18} strokeWidth={2} />
       ) : (
-        <Eye color="#3D5070" size={18} strokeWidth={2} />
+        <Eye color="#9CA3AF" size={18} strokeWidth={2} />
       )}
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Background orb */}
       <Animated.View
@@ -375,7 +400,7 @@ const LoginScreen = ({ goTo }) => {
             activeOpacity={0.7}
             onPress={() => goTo("Splash")}
           >
-            <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2.5} />
+            <ArrowLeft color="#000000" size={20} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.headerBadge}>
             <View style={styles.headerBadgeDot} />
@@ -391,6 +416,7 @@ const LoginScreen = ({ goTo }) => {
               { opacity: titleOp, transform: [{ translateY: titleY }] },
             ]}
           >
+            <BrandMark />
             <Text style={styles.eyebrow}>GOOD TO SEE YOU</Text>
             <Text style={styles.title}>Welcome{"\n"}Back</Text>
             <Text style={styles.subtitle}>
@@ -446,19 +472,29 @@ const LoginScreen = ({ goTo }) => {
             <View style={styles.biometricLine} />
           </View>
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.85}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <View style={styles.primaryInner}>
-              <Text style={styles.primaryText}>{loading ? "Signing In..." : "Sign In"}</Text>
-              <View style={styles.arrowBox}>
-                <ArrowRight color="#FFFFFF" size={16} strokeWidth={3} />
+          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && { opacity: 0.8 }]}
+              activeOpacity={0.85}
+              onPress={handleSubmit}
+              onPressIn={() => animateBtn(0.97)}
+              onPressOut={() => animateBtn(1)}
+              disabled={loading}
+            >
+              <View style={styles.primaryInner}>
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.primaryText}>Sign In</Text>
+                    <View style={styles.arrowBox}>
+                      <ArrowRight color="#FFFFFF" size={16} strokeWidth={3} />
+                    </View>
+                  </>
+                )}
               </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </Animated.View>
 
           <View style={styles.signupRow}>
             <Text style={styles.promptText}>Don't have an account? </Text>
@@ -476,7 +512,7 @@ const LoginScreen = ({ goTo }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#060D1A", paddingTop: 0 },
+  container: { flex: 1, backgroundColor: "#FFFFFF", paddingTop: 0 },
 
   bgOrb: {
     position: "absolute",
@@ -509,11 +545,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(0,0,0,0.08)",
   },
   headerBadge: {
     flexDirection: "row",
@@ -542,6 +578,48 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
 
   titleContainer: { marginBottom: 36 },
+
+  // Brand mark
+  brandMark: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#1A3A7A",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(99,156,255,0.3)",
+    shadowColor: "#2D6FF0",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: "hidden",
+    position: "relative",
+    marginBottom: 20,
+  },
+  brandSheen: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "45%",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  brandBadge: {
+    position: "absolute",
+    bottom: 3,
+    right: 3,
+    width: 16,
+    height: 16,
+    borderRadius: 5,
+    backgroundColor: "#63B3FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   eyebrow: {
     color: "#2D6FF0",
     fontSize: 11,
@@ -552,14 +630,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 40,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: "#000000",
     letterSpacing: -1,
     lineHeight: 46,
     marginBottom: 10,
+    textShadowColor: "rgba(45,111,240,0.35)",
+    textShadowRadius: 24,
   },
   subtitle: {
     fontSize: 15,
-    color: "#3D5070",
+    color: "#6B7280",
     fontWeight: "400",
     letterSpacing: 0.2,
   },
@@ -569,7 +649,7 @@ const styles = StyleSheet.create({
   // Animated input
   inputGroup: { position: "relative" },
   inputLabel: {
-    color: "#3D5070",
+    color: "#6B7280",
     fontSize: 12,
     fontWeight: "600",
     letterSpacing: 1,
@@ -612,7 +692,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 15,
     fontWeight: "500",
     height: "100%",
@@ -652,7 +732,7 @@ const styles = StyleSheet.create({
   biometricLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(0,0,0,0.1)",
   },
   biometricBtn: {
     width: 44,
@@ -699,8 +779,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  promptText: { color: "#3D5070", fontSize: 14 },
-  promptLink: { color: "#63B3FF", fontSize: 14, fontWeight: "700" },
+  promptText: { color: "#6B7280", fontSize: 14 },
+  promptLink: { color: "#2D6FF0", fontSize: 14, fontWeight: "700" },
 });
 
 export default LoginScreen;

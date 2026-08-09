@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,36 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { Shield, Link, Zap, ArrowRight } from 'lucide-react-native';
+import {
+  Shield,
+  Link,
+  Zap,
+  ArrowRight,
+  Lock,
+  Network,
+  CheckCircle2,
+} from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
+
+// ─── Boot sequence timings ────────────────────────────────────────────────────
+const BOOT_START = 550; // when the progress bar begins filling
+const BOOT_DURATION = 2300;
+const STEP_DURATION = 750; // per boot status step
+const EXIT_DELAY = BOOT_START + BOOT_DURATION + 200;
+const EXIT_FADE = 420;
+
+const BOOT_STEPS = [
+  { label: 'Establishing secure connection', Icon: Lock },
+  { label: 'Loading Ethereum network', Icon: Network },
+  { label: 'Almost ready…', Icon: CheckCircle2 },
+];
+
+const FEATURES = [
+  { label: 'Trustless', color: '#2D6FF0' },
+  { label: 'Instant', color: '#10B981' },
+  { label: 'Secure', color: '#F59E0B' },
+];
 
 // ─── Floating orb component ───────────────────────────────────────────────────
 const FloatingOrb = ({ size, color, initialX, initialY, delay, duration }) => {
@@ -25,8 +52,9 @@ const FloatingOrb = ({ size, color, initialX, initialY, delay, duration }) => {
     // Fade in
     Animated.timing(opacity, {
       toValue: 1,
-      duration: 1200,
+      duration: 1400,
       delay,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
 
@@ -93,7 +121,7 @@ const GridLine = ({ isVertical, position, delay }) => {
   useEffect(() => {
     Animated.timing(opacity, {
       toValue: 1,
-      duration: 800,
+      duration: 900,
       delay,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
@@ -121,14 +149,14 @@ const PulseRing = ({ delay, size }) => {
       Animated.parallel([
         Animated.timing(scale, {
           toValue: 2.4,
-          duration: 2400,
+          duration: 2600,
           delay,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 2400,
+          duration: 2600,
           delay,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
@@ -170,7 +198,7 @@ const LogoMark = ({ animValue }) => {
       {/* Pulse rings behind logo */}
       <View style={styles.pulseContainer}>
         <PulseRing delay={0} size={88} />
-        <PulseRing delay={800} size={88} />
+        <PulseRing delay={900} size={88} />
       </View>
 
       {/* Outer rotating ring */}
@@ -214,6 +242,18 @@ const LogoMark = ({ animValue }) => {
   );
 };
 
+// ─── Boot status row (icon + text) ────────────────────────────────────────────
+const BootStatus = ({ stepIndex, opacity }) => {
+  const { label, Icon } = BOOT_STEPS[stepIndex];
+
+  return (
+    <Animated.View style={[styles.statusRow, { opacity }]}>
+      <Icon size={12} color="#63B3FF" strokeWidth={2.5} />
+      <Text style={styles.statusText}>{label}</Text>
+    </Animated.View>
+  );
+};
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 const SplashScreen = ({ goTo }) => {
   // Master animation driver
@@ -221,19 +261,43 @@ const SplashScreen = ({ goTo }) => {
 
   // Entrance animations
   const headerOpacity = useRef(new Animated.Value(0)).current;
-  const headerTranslateY = useRef(new Animated.Value(40)).current;
+  const headerTranslateY = useRef(new Animated.Value(30)).current;
+  const headerScale = useRef(new Animated.Value(0.85)).current;
 
   const titleOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(30)).current;
-
-  const subtitleOpacity = useRef(new Animated.Value(0)).current;
-
-  const dotsOpacity = useRef(new Animated.Value(0)).current;
-
-  const footerOpacity = useRef(new Animated.Value(0)).current;
-  const footerTranslateY = useRef(new Animated.Value(40)).current;
+  const titleTranslateY = useRef(new Animated.Value(24)).current;
 
   const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const subtitleOpacity = useRef(new Animated.Value(0)).current;
+
+  const bootOpacity = useRef(new Animated.Value(0)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+  const footerTranslateY = useRef(new Animated.Value(30)).current;
+
+  // Exit fade
+  const containerOpacity = useRef(new Animated.Value(1)).current;
+
+  // Boot progress
+  const progress = useRef(new Animated.Value(0)).current;
+  const progressWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+  const statusOpacity = useRef(new Animated.Value(0)).current;
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const navigatedRef = useRef(false);
+
+  // Fade status text in on each step change
+  useEffect(() => {
+    statusOpacity.setValue(0);
+    Animated.timing(statusOpacity, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [stepIndex]);
 
   useEffect(() => {
     // Continuous slow spin
@@ -248,20 +312,24 @@ const SplashScreen = ({ goTo }) => {
 
     // Staggered entrance sequence
     Animated.sequence([
-      // Logo appears
+      // Logo pops in
       Animated.parallel([
         Animated.timing(headerOpacity, {
           toValue: 1,
-          duration: 700,
-          delay: 200,
-          easing: Easing.out(Easing.back(1.2)),
+          duration: 650,
+          easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(headerTranslateY, {
           toValue: 0,
-          duration: 700,
-          delay: 200,
-          easing: Easing.out(Easing.back(1.2)),
+          duration: 650,
+          easing: Easing.out(Easing.back(1.4)),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerScale, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.out(Easing.back(1.5)),
           useNativeDriver: true,
         }),
       ]),
@@ -269,39 +337,39 @@ const SplashScreen = ({ goTo }) => {
       Animated.parallel([
         Animated.timing(titleOpacity, {
           toValue: 1,
-          duration: 500,
+          duration: 420,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(titleTranslateY, {
           toValue: 0,
-          duration: 500,
-          easing: Easing.out(Easing.back(1.4)),
+          duration: 420,
+          easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
       ]),
       // Tagline fades
       Animated.timing(taglineOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 300,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       // Subtitle
       Animated.timing(subtitleOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 300,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      // Dots
-      Animated.timing(dotsOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      // Footer
+      // Boot status + footer
       Animated.parallel([
+        Animated.timing(bootOpacity, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
         Animated.timing(footerOpacity, {
           toValue: 1,
           duration: 500,
@@ -316,11 +384,44 @@ const SplashScreen = ({ goTo }) => {
         }),
       ]),
     ]).start();
+
+    // Boot progress bar (0 → 100%)
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: BOOT_DURATION,
+      delay: BOOT_START,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    // Cycle boot status text
+    const stepTimers = BOOT_STEPS.map((_, i) =>
+      setTimeout(() => setStepIndex(i), BOOT_START + i * STEP_DURATION)
+    );
+
+    // Auto-advance to Login after boot completes
+    const exitTimer = setTimeout(() => {
+      Animated.timing(containerOpacity, {
+        toValue: 0,
+        duration: EXIT_FADE,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        if (navigatedRef.current) return;
+        navigatedRef.current = true;
+        goTo('Login');
+      });
+    }, EXIT_DELAY);
+
+    return () => {
+      stepTimers.forEach(clearTimeout);
+      clearTimeout(exitTimer);
+    };
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+    <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Background layer ── */}
       <View style={styles.bgLayer}>
@@ -342,12 +443,14 @@ const SplashScreen = ({ goTo }) => {
 
       {/* ── Content ── */}
       <View style={styles.content}>
-
         {/* Logo */}
         <Animated.View
           style={[
             styles.logoArea,
-            { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] },
+            {
+              opacity: headerOpacity,
+              transform: [{ translateY: headerTranslateY }, { scale: headerScale }],
+            },
           ]}
         >
           <LogoMark animValue={spinAnim} />
@@ -374,18 +477,12 @@ const SplashScreen = ({ goTo }) => {
 
         {/* Feature pills */}
         <Animated.View style={[styles.pillRow, { opacity: subtitleOpacity }]}>
-          {['Trustless', 'Instant', 'Secure'].map((label, i) => (
-            <View key={i} style={styles.featurePill}>
+          {FEATURES.map(({ label, color }) => (
+            <View key={label} style={styles.featurePill}>
+              <View style={[styles.featureDot, { backgroundColor: color }]} />
               <Text style={styles.featurePillText}>{label}</Text>
             </View>
           ))}
-        </Animated.View>
-
-        {/* Pagination dots */}
-        <Animated.View style={[styles.paginationContainer, { opacity: dotsOpacity }]}>
-          <View style={[styles.dot, styles.activeDot]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
         </Animated.View>
       </View>
 
@@ -396,11 +493,19 @@ const SplashScreen = ({ goTo }) => {
           { opacity: footerOpacity, transform: [{ translateY: footerTranslateY }] },
         ]}
       >
+        {/* Boot status + progress */}
+        <Animated.View style={[styles.bootContainer, { opacity: bootOpacity }]}>
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+          </View>
+          <BootStatus stepIndex={stepIndex} opacity={statusOpacity} />
+        </Animated.View>
+
         {/* Divider line */}
         <View style={styles.footerDivider} />
 
-        <TouchableOpacity 
-          style={styles.primaryButton} 
+        <TouchableOpacity
+          style={styles.primaryButton}
           activeOpacity={0.85}
           onPress={() => goTo('Signup')}
         >
@@ -412,8 +517,8 @@ const SplashScreen = ({ goTo }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.secondaryButton} 
+        <TouchableOpacity
+          style={styles.secondaryButton}
           activeOpacity={0.6}
           onPress={() => goTo('Login')}
         >
@@ -426,7 +531,7 @@ const SplashScreen = ({ goTo }) => {
           <Text style={styles.legalLink}>Privacy Policy</Text>
         </Text>
       </Animated.View>
-    </SafeAreaView>
+    </Animated.View>
   );
 };
 
@@ -434,7 +539,7 @@ const SplashScreen = ({ goTo }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#060D1A',
+    backgroundColor: '#FFFFFF',
     paddingTop: 0,
   },
 
@@ -451,14 +556,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(45,111,240,0.08)',
+    backgroundColor: 'rgba(45,111,240,0.07)',
   },
   gridLineV: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(45,111,240,0.08)',
+    backgroundColor: 'rgba(45,111,240,0.07)',
   },
 
   // Content
@@ -471,7 +576,7 @@ const styles = StyleSheet.create({
 
   // Logo
   logoArea: {
-    marginBottom: 36,
+    marginBottom: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -490,7 +595,7 @@ const styles = StyleSheet.create({
   pulseRing: {
     position: 'absolute',
     borderWidth: 1.5,
-    borderColor: 'rgba(45,111,240,0.5)',
+    borderColor: 'rgba(45,111,240,0.45)',
     backgroundColor: 'transparent',
   },
   outerRing: {
@@ -515,11 +620,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(99,156,255,0.25)',
+    borderColor: 'rgba(99,156,255,0.3)',
     shadowColor: '#2D6FF0',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
+    shadowOpacity: 0.55,
+    shadowRadius: 26,
     elevation: 16,
     overflow: 'hidden',
     position: 'relative',
@@ -549,7 +654,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#060D1A',
+    borderColor: '#FFFFFF',
     shadowColor: '#63B3FF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.6,
@@ -572,11 +677,13 @@ const styles = StyleSheet.create({
 
   // Typography
   title: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 10,
+    color: '#000000',
+    marginBottom: 12,
     letterSpacing: -0.5,
+    textShadowColor: 'rgba(45,111,240,0.35)',
+    textShadowRadius: 24,
   },
   taglinePill: {
     flexDirection: 'row',
@@ -604,14 +711,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 24,
+    fontSize: 23,
     color: '#8A94A6',
     fontWeight: '300',
     letterSpacing: 0.3,
-    lineHeight: 32,
+    lineHeight: 31,
   },
   subtitleAccent: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontWeight: '700',
   },
 
@@ -619,58 +726,79 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 24,
-    marginBottom: 32,
+    marginTop: 22,
+    marginBottom: 26,
   },
   featurePill: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 100,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 6,
   },
+  featureDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   featurePillText: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(0,0,0,0.6)',
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.4,
   },
 
-  // Pagination
-  paginationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  activeDot: {
-    width: 22,
-    borderRadius: 3,
-    backgroundColor: '#2D6FF0',
-  },
-
   // Footer
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 44,
+    paddingBottom: 40,
     width: '100%',
     alignItems: 'center',
+  },
+  bootContainer: {
+    width: '78%',
+    alignItems: 'center',
+    marginBottom: 22,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: '#2D6FF0',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 10,
+  },
+  statusText: {
+    color: 'rgba(0,0,0,0.55)',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    minWidth: 210,
+    textAlign: 'left',
   },
   footerDivider: {
     width: '100%',
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 28,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    marginBottom: 24,
   },
   primaryButton: {
     backgroundColor: '#2D6FF0',
-    height: 56,
+    height: 54,
     width: '100%',
     borderRadius: 14,
     justifyContent: 'center',
@@ -702,30 +830,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  arrowText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   secondaryButton: {
-    height: 56,
+    height: 54,
     width: '100%',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(0,0,0,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
     marginBottom: 20,
   },
   secondaryButtonText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(0,0,0,0.7)',
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
   legalText: {
-    color: 'rgba(255,255,255,0.25)',
+    color: 'rgba(0,0,0,0.4)',
     fontSize: 12,
     letterSpacing: 0.2,
     textAlign: 'center',

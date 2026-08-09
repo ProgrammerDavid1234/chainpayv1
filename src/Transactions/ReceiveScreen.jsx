@@ -189,7 +189,7 @@ const ReceiveScreen = ({ goTo }) => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#060910" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.centred}>
           <ActivityIndicator size="large" color="#2D6FF0" />
           <Text style={styles.loadingText}>Loading wallet…</Text>
@@ -201,7 +201,7 @@ const ReceiveScreen = ({ goTo }) => {
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#060910" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.centred}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => goTo("Home")}>
@@ -215,12 +215,12 @@ const ReceiveScreen = ({ goTo }) => {
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060910" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Header ── */}
       <Animated.View style={[styles.header, headerStyle]}>
         <TouchableOpacity style={styles.backBtn} activeOpacity={0.7} onPress={() => goTo("Home")}>
-          <ArrowLeft color="#FFFFFF" size={19} strokeWidth={2.5} />
+          <ArrowLeft color="#000000" size={19} strokeWidth={2.5} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Receive</Text>
@@ -307,7 +307,7 @@ const ReceiveScreen = ({ goTo }) => {
         {/* Action buttons */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.shareBtn} activeOpacity={0.82} onPress={handleShare}>
-            <Share2 color="#FFFFFF" size={17} strokeWidth={2.2} />
+            <Share2 color="#000000" size={17} strokeWidth={2.2} />
             <Text style={styles.shareBtnText}>Share</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.copyBtn} activeOpacity={0.82} onPress={handleCopy}>
@@ -334,13 +334,13 @@ const ReceiveScreen = ({ goTo }) => {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const C = {
-  bg:      "#060910",
-  surface: "#0D1220",
-  border:  "rgba(255,255,255,0.07)",
+  bg:      "#FFFFFF",
+  surface: "#F8FAFC",
+  border:  "rgba(0,0,0,0.07)",
   blue:    "#2D6FF0",
   green:   "#1D9E75",
-  text:    "#FFFFFF",
-  sub:     "rgba(255,255,255,0.38)",
+  text:    "#000000",
+  sub:     "rgba(0,0,0,0.38)",
 };
 
 const styles = StyleSheet.create({
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   loadingText:  { color: C.sub, fontSize: 14, marginTop: 4 },
   errorText:    { color: "#e05555", fontSize: 15, textAlign: "center", paddingHorizontal: 32 },
   retryBtn:     { backgroundColor: C.blue, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
-  retryBtnText: { color: C.text, fontWeight: "700" },
+  retryBtnText: { color: "#FFFFFF", fontWeight: "700" },
 
   header: {
     flexDirection: "row",
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     paddingVertical: 15,
     borderRadius: 16,
     borderWidth: 1,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 8,
   },
-  copyBtnText: { color: C.text, fontSize: 14, fontWeight: "700" },
+  copyBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 
   warning: {
     backgroundColor: "rgba(192,138,42,0.07)",

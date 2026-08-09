@@ -36,7 +36,7 @@ export const getGasEstimate   = (to, amount) => api.get(`/wallet/gas-estimate?to
 export const getWalletAddress = ()           => api.get('/wallet/status');
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-export const getTransactions        = (filter = 'all', page = 1) => api.get(`/transactions?filter=${filter}&page=${page}`);
+export const getTransactions        = (filter = 'all', page = 1, limit = 20) => api.get(`/transactions?filter=${filter}&page=${page}&limit=${limit}`);
 export const getPendingTransactions = ()       => api.get('/transactions/pending');
 export const getTransaction         = (txHash) => api.get(`/transactions/${txHash}`);
 export const verifyTransaction      = (txHash) => api.get(`/transactions/${txHash}/verify`);

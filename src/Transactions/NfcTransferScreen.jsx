@@ -366,12 +366,12 @@ export default function NFCPayScreen({ goTo }) {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.closeBtn} onPress={() => { reset(); goTo('Pay'); }} activeOpacity={0.7}>
-          <X color="#FFFFFF" size={18} strokeWidth={2.5} />
+          <X color="#000000" size={18} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tap to Pay</Text>
         <View style={[styles.headerBadge, { borderColor: stageColor + '40', backgroundColor: stageColor + '15' }]}>
@@ -461,7 +461,7 @@ export default function NFCPayScreen({ goTo }) {
                 activeOpacity={0.85}
                 onPress={() => chooseRole('sender')}
               >
-                <Send color="#FFFFFF" size={22} strokeWidth={1.8} />
+                <Send color="#000000" size={22} strokeWidth={1.8} />
                 <Text style={styles.roleBtnLabel}>I'm Sending</Text>
                 <Text style={styles.roleBtnSub}>Tap their phone</Text>
               </TouchableOpacity>
@@ -471,7 +471,7 @@ export default function NFCPayScreen({ goTo }) {
                 activeOpacity={0.85}
                 onPress={() => chooseRole('receiver')}
               >
-                <Download color="#FFFFFF" size={22} strokeWidth={1.8} />
+                <Download color="#000000" size={22} strokeWidth={1.8} />
                 <Text style={styles.roleBtnLabel}>I'm Receiving</Text>
                 <Text style={styles.roleBtnSub}>Let them tap you</Text>
               </TouchableOpacity>
@@ -601,7 +601,7 @@ export default function NFCPayScreen({ goTo }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: '#060D1A' },
+  container:  { flex: 1, backgroundColor: '#FFFFFF' },
 
   // Header
   header: {
@@ -611,11 +611,11 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     width: 38, height: 38, borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
     justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
+  headerTitle: { color: '#000000', fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
   headerBadge: {
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderRadius: 100,
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
   orbitDot: { position: 'absolute', width: 7, height: 7, borderRadius: 3.5 },
   nfcIconBox: {
     width: 112, height: 112, borderRadius: 32,
-    backgroundColor: '#0A1628',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     justifyContent: 'center', alignItems: 'center',
     shadowOffset: { width: 0, height: 0 },
@@ -659,11 +659,11 @@ const styles = StyleSheet.create({
     columnGap: 8, maxWidth: width * 0.7,
   },
   walletPillLabel: { color: '#F59E0B', fontSize: 11, fontWeight: '700' },
-  walletPillAddr:  { color: '#FFFFFF', fontSize: 12, fontWeight: '500', flex: 1 },
+  walletPillAddr:  { color: '#000000', fontSize: 12, fontWeight: '500', flex: 1 },
 
   // Card
   card: {
-    backgroundColor: '#0A1628',
+    backgroundColor: '#F8FAFC',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
     borderColor: 'rgba(45,111,240,0.12)',
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     minHeight: 280,
   },
   cardTitle: {
-    color: '#FFFFFF', fontSize: 22,
+    color: '#000000', fontSize: 22,
     fontWeight: '800', letterSpacing: -0.3, marginBottom: 8,
   },
   cardSub: {
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,185,129,0.1)',
     borderColor: 'rgba(16,185,129,0.3)',
   },
-  roleBtnLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  roleBtnLabel: { color: '#000000', fontSize: 15, fontWeight: '700' },
   roleBtnSub:   { color: '#3D5070', fontSize: 12, fontWeight: '500' },
 
   // Waiting
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
   nfcHintText: { color: '#3D5070', fontSize: 13, fontWeight: '600' },
   cancelBtn: {
     height: 48, borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
     justifyContent: 'center', alignItems: 'center',
   },
   cancelBtnText: { color: '#3D5070', fontSize: 15, fontWeight: '600' },
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     fontWeight: '300', marginRight: 4,
   },
   amountInput: {
-    color: '#FFFFFF', fontSize: 48,
+    color: '#000000', fontSize: 48,
     fontWeight: '700', flex: 1, letterSpacing: -1,
   },
   quickAmounts: {
@@ -733,8 +733,8 @@ const styles = StyleSheet.create({
   quickBtn: {
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: 100, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   quickBtnActive: {
     backgroundColor: 'rgba(245,158,11,0.15)',
@@ -757,10 +757,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   txLabel: { color: '#3D5070', fontSize: 14 },
-  txValue: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  txValue: { color: '#000000', fontSize: 14, fontWeight: '600' },
 
   // Success
   successContainer: {},

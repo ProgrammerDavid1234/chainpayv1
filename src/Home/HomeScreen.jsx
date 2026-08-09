@@ -33,6 +33,7 @@ import {
 } from "lucide-react-native";
 import useAuth from "../hooks/useAuth";
 import useApi from "../hooks/useApi";
+import { useTheme } from "../contexts/ThemeContext";
 
 const { width } = Dimensions.get("window");
 
@@ -195,6 +196,8 @@ const BalanceSkeleton = () => (
 const HomeScreen = ({ goTo }) => {
   const { user }  = useAuth();
   const api       = useApi();
+  const { theme, mode, toggleTheme } = useTheme();
+  const colors = theme.colors;
 
   const [activeTab,    setActiveTab]    = useState("Home");
   const [balance,      setBalance]      = useState(null);
@@ -216,6 +219,11 @@ const HomeScreen = ({ goTo }) => {
 
   // ── Load data ────────────────────────────────────────────────────────────────
   // Load wallet balance, transactions, and pending transactions
+  const sortTransactions = (txs) =>
+    [...txs].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
   const loadData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     setError("");
@@ -232,8 +240,11 @@ const HomeScreen = ({ goTo }) => {
         // getTransactions
         let txRes = null;
         try {
-          txRes = await api.getTransactions("all", 1);
-          setTransactions(txRes.data.transactions?.slice(0, 5) || []);
+          txRes = await api.getTransactions("all", 1, 20);
+          const txList = Array.isArray(txRes.data.transactions)
+            ? sortTransactions(txRes.data.transactions)
+            : [];
+          setTransactions(txList.slice(0, 3));
         } catch (err) {
           setError("Failed to load transactions");
         }
@@ -290,6 +301,13 @@ const HomeScreen = ({ goTo }) => {
   };
 
   const orbTranslate = orbAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
+  const hasWallet = !!user?.walletAddress;
+
+  useEffect(() => {
+    if (hasWallet && activeTab === "Wallet") {
+      setActiveTab("Home");
+    }
+  }, [hasWallet, activeTab]);
 
 
   // Hide Wallet tab if wallet is connected
@@ -301,11 +319,9 @@ const HomeScreen = ({ goTo }) => {
     { name: "Profile",  icon: User },
   ];
 
-  const hasWallet = !!user?.walletAddress;
-
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060D1A" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> 
+      <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Background orbs */}
       <Animated.View style={[styles.bgOrb, { transform: [{ translateY: orbTranslate }] }]} />
@@ -327,18 +343,23 @@ const HomeScreen = ({ goTo }) => {
         {/* ── Header ── */}
         <Animated.View style={[styles.header, { opacity: headerOp, transform: [{ translateY: headerY }] }]}>
           <View style={styles.headerLeft}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+            <View style={[styles.avatar, { backgroundColor: mode === "dark" ? "rgba(45,111,240,0.16)" : "rgba(45,111,240,0.08)", borderColor: mode === "dark" ? "rgba(45,111,240,0.35)" : "rgba(45,111,240,0.2)" }]}>
+              <Text style={[styles.avatarText, { color: colors.primary }]}>{getInitials(user?.name)}</Text>
             </View>
             <View>
-              <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.userName}>{user?.name?.split(" ")[0] || "User"}</Text>
+              <Text style={[styles.greeting, { color: colors.textSecondary }]}>{getGreeting()}</Text>
+              <Text style={[styles.userName, { color: colors.textPrimary }]}>{user?.name?.split(" ")[0] || "User"}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7} onPress={() => goTo("Notification")}> 
-            <Bell color="#FFFFFF" size={20} strokeWidth={2} />
-            {pending.length > 0 && <View style={styles.bellDot} />}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} activeOpacity={0.7} onPress={toggleTheme}>
+              <Text style={{ color: colors.textPrimary, fontSize: 16 }}>{mode === "dark" ? "☀" : "☾"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.bellBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} activeOpacity={0.7} onPress={() => goTo("Notification")}> 
+              <Bell color={colors.textPrimary} size={20} strokeWidth={2} />
+              {pending.length > 0 && <View style={styles.bellDot} />}
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         {/* ── Connect Wallet Banner (shown when no wallet) ── */}
@@ -353,15 +374,15 @@ const HomeScreen = ({ goTo }) => {
         )}
 
         {/* ── Balance card ── */}
-        <Animated.View style={[styles.balanceCard, { opacity: balanceOp, transform: [{ scale: balanceScale }] }]}>
-          <Text style={styles.balanceLabel}>
+        <Animated.View style={[styles.balanceCard, { opacity: balanceOp, transform: [{ scale: balanceScale }], backgroundColor: mode === "dark" ? "#0D1E3C" : colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}> 
             {hasWallet ? "Wallet Balance" : "Connect wallet to see balance"}
           </Text>
 
           {loading && hasWallet ? (
             <ActivityIndicator color="#2D6FF0" style={{ marginVertical: 12 }} />
           ) : (
-            <Text style={styles.balanceAmount}>
+            <Text style={[styles.balanceAmount, { color: colors.textPrimary }]}> 
               {hasWallet ? `Ξ ${formatEth(balance?.balanceEth)}` : "— —"}
             </Text>
           )}
@@ -370,13 +391,13 @@ const HomeScreen = ({ goTo }) => {
           {hasWallet && balance?.walletAddress && (
             <View style={styles.addressPill}>
               <View style={styles.addressDot} />
-              <Text style={styles.addressText}>
+              <Text style={[styles.addressText, { color: mode === "dark" ? "#63B3FF" : colors.primary }]}> 
                 {formatAddress(balance.walletAddress)}
               </Text>
             </View>
           )}
 
-          <View style={styles.balanceLine} />
+          <View style={[styles.balanceLine, { backgroundColor: colors.border }]} />
 
           {/* Quick actions */}
           <View style={styles.quickActionsRow}>
@@ -388,10 +409,10 @@ const HomeScreen = ({ goTo }) => {
         </Animated.View>
 
         {/* ── Promo card ── */}
-        <Animated.View style={[styles.promoCard, { opacity: promoOp, transform: [{ translateY: promoY }] }]}>
+        <Animated.View style={[styles.promoCard, { opacity: promoOp, transform: [{ translateY: promoY }], backgroundColor: mode === "dark" ? "#1A3A7A" : colors.surface, borderColor: mode === "dark" ? "rgba(45,111,240,0.3)" : colors.border }]}>
           <View style={styles.promoContent}>
-            <Text style={styles.promoTitle}>Blockchain Secured</Text>
-            <Text style={styles.promoSubtitle}>
+            <Text style={[styles.promoTitle, { color: colors.textPrimary }]}>Blockchain Secured</Text>
+            <Text style={[styles.promoSubtitle, { color: mode === "dark" ? "rgba(255,255,255,0.6)" : colors.textSecondary }]}> 
               Every transaction recorded on Ethereum. Fully verifiable, tamper-proof.
             </Text>
           </View>
@@ -405,13 +426,13 @@ const HomeScreen = ({ goTo }) => {
         {/* ── Recent transactions ── */}
         <Animated.View style={[styles.txSection, { opacity: txOp }]}>
           <View style={styles.txHeader}>
-            <Text style={styles.txHeaderTitle}>Recent Transactions</Text>
+            <Text style={[styles.txHeaderTitle, { color: colors.textPrimary }]}>Recent Transactions</Text>
             <TouchableOpacity activeOpacity={0.6} onPress={() => goTo("Activity")}>
-              <Text style={styles.txSeeAll}>See all</Text>
+              <Text style={[styles.txSeeAll, { color: colors.primary }]}>See all</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.txList}>
+          <View style={[styles.txList, { backgroundColor: mode === "dark" ? "#0D1E3C" : colors.surfaceElevated, borderColor: colors.border }]}> 
             {loading && hasWallet ? (
               <View style={styles.txLoadingContainer}>
                 <ActivityIndicator color="#2D6FF0" />
@@ -449,7 +470,7 @@ const HomeScreen = ({ goTo }) => {
       </ScrollView>
 
       {/* ── Bottom tab bar ── */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: mode === "dark" ? "#0A1628" : colors.surface, borderTopColor: colors.border }]}> 
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.name}
@@ -464,20 +485,20 @@ const HomeScreen = ({ goTo }) => {
             }}
           >
             {tab.isCenter ? (
-              <View style={styles.scanButton}>
+              <View style={[styles.scanButton, { borderColor: mode === "dark" ? "#0A1628" : "#FFFFFF" }]}>
                 <tab.icon color="#FFFFFF" size={22} strokeWidth={2.5} />
               </View>
             ) : (
               <>
                 <tab.icon
-                  color={activeTab === tab.name ? "#2D6FF0" : "rgba(255,255,255,0.35)"}
+                  color={activeTab === tab.name ? colors.primary : colors.textMuted}
                   size={22}
                   strokeWidth={activeTab === tab.name ? 2.5 : 1.8}
                 />
-                <Text style={[styles.tabLabel, activeTab === tab.name && styles.tabLabelActive]}>
+                <Text style={[styles.tabLabel, activeTab === tab.name && styles.tabLabelActive, { color: activeTab === tab.name ? colors.primary : colors.textMuted }]}> 
                   {tab.name}
                 </Text>
-                {activeTab === tab.name && <View style={styles.tabDot} />}
+                {activeTab === tab.name && <View style={[styles.tabDot, { backgroundColor: colors.primary }]} />}
               </>
             )}
           </TouchableOpacity>
@@ -497,19 +518,21 @@ const styles = StyleSheet.create({
 
   // Header
   header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 },
+  headerActions: { flexDirection: "row", alignItems: "center", columnGap: 10 },
+  iconBtn:     { width: 42, height: 42, borderRadius: 13, justifyContent: "center", alignItems: "center", borderWidth: 1 },
   headerLeft:  { flexDirection: "row", alignItems: "center", columnGap: 12 },
   avatar:      { width: 44, height: 44, borderRadius: 22, backgroundColor: "#1A3A7A", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "rgba(45,111,240,0.4)" },
   avatarText:  { color: "#63B3FF", fontSize: 16, fontWeight: "700" },
   greeting:    { color: "#6B7A99", fontSize: 13, fontWeight: "400" },
   userName:    { color: "#FFFFFF", fontSize: 18, fontWeight: "700", letterSpacing: -0.3 },
-  bellBtn:     { width: 42, height: 42, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.06)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  bellBtn:     { width: 42, height: 42, borderRadius: 13, justifyContent: "center", alignItems: "center", borderWidth: 1 },
   bellDot:     { position: "absolute", top: 10, right: 12, width: 7, height: 7, borderRadius: 4, backgroundColor: "#EF4444", borderWidth: 1.5, borderColor: "#060D1A" },
 
   // Connect wallet banner
   connectBanner:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(245,158,11,0.08)", borderWidth: 1, borderColor: "rgba(245,158,11,0.25)", borderRadius: 16, padding: 16, marginHorizontal: 24, marginBottom: 16 },
   connectBannerLeft: { flexDirection: "row", alignItems: "center", columnGap: 12, flex: 1 },
   connectBannerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(245,158,11,0.12)", justifyContent: "center", alignItems: "center" },
-  connectBannerTitle:{ color: "#FFFFFF", fontSize: 14, fontWeight: "700", marginBottom: 2 },
+  connectBannerTitle:{ color: "#000000", fontSize: 14, fontWeight: "700", marginBottom: 2 },
   connectBannerSub:  { color: "#64748B", fontSize: 12 },
 
   // Error banner
@@ -532,8 +555,8 @@ const styles = StyleSheet.create({
   quickActionLabel: { color: "#8A94A6", fontSize: 12, fontWeight: "500" },
 
   // Skeleton
-  skeletonCard: { marginHorizontal: 24, backgroundColor: "#0D1E3C", borderRadius: 24, padding: 24, marginBottom: 20 },
-  skeletonLine: { height: 16, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 8, width: "40%" },
+  skeletonCard: { marginHorizontal: 24, backgroundColor: "#F8FAFC", borderRadius: 24, padding: 24, marginBottom: 20 },
+  skeletonLine: { height: 16, backgroundColor: "rgba(0,0,0,0.08)", borderRadius: 8, width: "40%" },
 
   // Promo card
   promoCard:      { marginHorizontal: 24, borderRadius: 20, padding: 20, flexDirection: "row", alignItems: "center", backgroundColor: "#1A3A7A", borderWidth: 1, borderColor: "rgba(45,111,240,0.3)", overflow: "hidden", marginBottom: 24 },
@@ -552,7 +575,7 @@ const styles = StyleSheet.create({
   txList:       { backgroundColor: "#0D1E3C", borderRadius: 20, padding: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.04)" },
   txItem:       {},
   txItemInner:  { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16 },
-  txDivider:    { height: 1, backgroundColor: "rgba(255,255,255,0.04)", marginHorizontal: 16 },
+  txDivider:    { height: 1, backgroundColor: "rgba(0,0,0,0.05)", marginHorizontal: 16 },
   txIcon:       { width: 42, height: 42, borderRadius: 13, justifyContent: "center", alignItems: "center", marginRight: 12 },
   txDetails:    { flex: 1 },
   txName:       { color: "#FFFFFF", fontSize: 14, fontWeight: "600", marginBottom: 3 },
