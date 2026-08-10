@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import useApi from "../hooks/useApi";
-import { ethers } from "ethers";
+import { getAuthToken } from "../services/api";
 import {
   View,
   Text,
@@ -31,6 +31,8 @@ import {
 } from "lucide-react-native";
 
 const ETH_TO_USD = 3480;
+
+const SEND_PAGE_BASE = "https://chainpaybackend.onrender.com";
 
 const RECENT_CONTACTS = [
   { id: "1", name: "Alex K.", address: "0x1A2b...9F3d", avatar: "AK" },
@@ -364,15 +366,6 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
     setAmount(text);
     setSelectedQuick(null);
   };
-  const ethToWei = (ethAmount) => {
-    const parts = String(ethAmount).split(".");
-    const whole = parts[0];
-    const fraction = parts[1] || "";
-    const paddedFraction = fraction.padEnd(18, "0").slice(0, 18);
-    const cleanWhole = whole.replace(/^0+/, "") || "0";
-    const wei = BigInt(cleanWhole) * BigInt(10 ** 18) + BigInt(paddedFraction);
-    return wei.toString();
-  };
 
   // ── API 3: Send transaction ─────────────────────────────────────────────
   const handleSend = async () => {
@@ -404,25 +397,28 @@ const SendScreen = ({ goTo, prefillAddress = "" }) => {
                 throw new Error("No transaction data returned");
               }
 
-              // Manual ETH to wei conversion (no ethers needed)
-              const valueInWei = ethToWei(String(amountNum));
+              // MetaMask mobile can't sign contract calls via the ethereum:
+              // deep-link scheme (it drops the data parameter), so signing
+              // happens on the /send web page running inside the MetaMask
+              // browser, where ethers builds the calldata and MetaMask
+              // estimates gas itself.
+              // The app.link dapp URL must carry the query string RAW (never
+              // encodeURIComponent'd) — Branch's resolver produces a blank/
+              // "null" page on %-encoded URLs.
+              const usesContract = !!res?.data?.usesContract;
 
-              // When contract path is used, the deep link points to the
-// PaymentProcessor contract. MetaMask will call sendPayment(toRecipient)
-// internally, then dispatch ETH to the recipient. Show both so the
-// user understands what's happening.
-const destLabel = useContractPath
-  ? `Payment processor → ${recipientTrimmed.slice(0, 10)}`
-  : `Recipient: ${recipientTrimmed.slice(0, 10)}`;
+              const dappUrl =
+                `${SEND_PAGE_BASE}/send?` +
+                `to=${recipientTrimmed}&` +
+                `amount=${String(amountNum)}&` +
+                `token=${getAuthToken() || ""}&` +
+                `redirect=chainpay://` +
+                (usesContract ? `&contract=${txData.to}` : "");
 
-const ethereumUrl =
-  `ethereum:${txData.to}@${txData.chainId}?` +
-  `value=${valueInWei}&` +
-  `gas=${txData.gasLimit}&` +
-  `gasPrice=${txData.gasPrice}` +
-  (txData.data ? `&data=${txData.data}` : '');
+              const metamaskUrl =
+                `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, "")}`;
 
-              const canOpen = await Linking.canOpenURL(ethereumUrl);
+              const canOpen = await Linking.canOpenURL(metamaskUrl);
 
               if (!canOpen) {
                 Alert.alert(
@@ -441,39 +437,22 @@ const ethereumUrl =
                 return;
               }
 
+              await Linking.openURL(metamaskUrl);
+              setSending(false);
+
               Alert.alert(
-                "⚠️ Sepolia Testnet Required",
-                "Before continuing, ensure Sepolia Testnet is added to MetaMask:\n\n" +
-                  "1. Open MetaMask\n" +
-                  "2. Tap ≡ → Settings → Networks\n" +
-                  "3. Add Network → Search 'Sepolia'\n" +
-                  "4. Save and return here\n\n" +
-                  "Then tap Continue to open the transaction.",
+                "Complete in MetaMask 🦊",
+                "Review and confirm the transaction in the MetaMask browser " +
+                  "(make sure you're on the Sepolia network). " +
+                  (usesContract
+                    ? "The payment goes through the ChainPay processor contract to your recipient."
+                    : "The ETH is sent directly to your recipient."),
                 [
                   {
-                    text: "Cancel",
-                    style: "cancel",
-                    onPress: () => setSending(false),
-                  },
-                  {
-                    text: "Continue →",
-                    onPress: async () => {
-                      await Linking.openURL(ethereumUrl);
-                      setSending(false);
-
-                      Alert.alert(
-                        "Complete in MetaMask 🦊",
-                        "Review the transaction details in MetaMask and tap Confirm to send.",
-                        [
-                          {
-                            text: "OK",
-                            onPress: () => {
-                              fetchBalance();
-                              goTo("Home");
-                            },
-                          },
-                        ],
-                      );
+                    text: "OK",
+                    onPress: () => {
+                      fetchBalance();
+                      goTo("Home");
                     },
                   },
                 ],

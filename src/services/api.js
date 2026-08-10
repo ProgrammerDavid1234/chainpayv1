@@ -5,7 +5,7 @@ const BASE_URL = 'https://chainpaybackend.onrender.com/api/v1';
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 let authToken = null;
